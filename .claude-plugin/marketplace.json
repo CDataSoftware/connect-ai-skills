@@ -1,0 +1,14 @@
+{
+  "name": "connect-ai-skills",
+  "owner": {
+    "name": "CData Software",
+    "url": "https://www.cdata.com/ai/"
+  },
+  "plugins": [
+    {
+      "name": "cdata-base",
+      "source": "./cdata-base",
+      "description": "Base skill assisting with discovery workflow, query patterns, error recovery."
+    }
+  ]
+}
