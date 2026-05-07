@@ -3,13 +3,18 @@
 > [!IMPORTANT]
 > This repo is under development. Additional connector-family skills (`cdata-crm`, `cdata-erp`, `cdata-hcm`, `cdata-ticketing`, `cdata-analytics`) and connector-specific skills are in development.
 
-A plugin for **Claude Code** and **Claude Cowork** containing Skills that guide Claude through the correct discovery workflow, query construction patterns, and error-recovery techniques when working with [CData Connect AI](https://www.cdata.com/ai/).
+Plugins for **Claude Code** and **Claude Cowork** containing Skills that guide Claude through the correct discovery workflow, query construction patterns, and error-recovery techniques when working with [CData Connect AI](https://www.cdata.com/ai/).
 
-## Skills in this plugin
+## Plugins and skills
+
+<details>
+<summary><strong><code>cdata-base</code> plugin</strong></summary>
 
 | Skill | Trigger | Description |
 |---|---|---|
-| `cdata-base` | Auto / `/cdata-base:base` | **Base skill.** Required discovery workflow (`getInstructions` → schema → query), common error patterns. Load this first — all other skills compose on top of it. |
+| `base` | Auto / `/cdata-base:base` | **Base skill.** Required discovery workflow (`getInstructions` → schema → query), common error patterns. Load this first — all other skills compose on top of it. |
+
+</details>
 
 
 ## Prerequisites

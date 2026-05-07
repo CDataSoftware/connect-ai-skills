@@ -1,5 +1,5 @@
 ---
-name: cdata-base
+name: base
 description: Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data (CRM, HCM, ERP, ticketing, analytics, databases). Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery. Load connector-family (cdata-crm, cdata-hcm, cdata-erp) or connector-specific (cdata-salesforce, cdata-workday, etc.) skills on top for deeper patterns.
 ---
 
