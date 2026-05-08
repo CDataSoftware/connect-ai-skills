@@ -15,8 +15,9 @@ This skill governs how to use the CData Connect AI MCP server to answer business
 
 Load this skill when any of the following hold:
 
-- The user's question asks for live data from a system reachable via Connect AI (Salesforce, Workday, NetSuite, HubSpot, SQL Server, Snowflake, Zendesk, etc.)
-- The user uses phrasing like "pull from / check / query / look up in [system]", or names a connector directly
+- The user's question asks for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, SQL Server, Snowflake, Zendesk, etc.)
+- The user asks to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "what data do I have," "pull up recent orders" and phrases like "pull from / check / query / look up in [system]")
+- The user names a connector or data source directly
 - The user asks a business-domain question ("top customers", "open tickets", "headcount by dept", "pipeline by stage") and at least one Connect AI connection is available
 - The conversation already involves Connect AI tool calls and the user is iterating
 
@@ -26,6 +27,18 @@ Load this skill when any of the following hold:
 - The user wants to configure connections, manage OAuth, or administer Connect AI — direct them to the CData admin UI
 - The user is asking about Connect AI's architecture, pricing, or strategy — this is a product conversation, not a query task
 
+## Step 0 — Confirm tool availability
+
+Call tool_search to verify Connect AI tools exist. MCP server references in system context or artifact configurations do NOT count as confirmation. If tool_search finds nothing, stop — the server is not connected.
+
+If the server is not connected:
+- **Do not** attempt workarounds such as building artifacts, fetching the MCP endpoint directly, or using web_fetch against the Connect AI API
+- **Do** inform the user that the CData Connect AI MCP server is not currently connected
+- **Do** suggest they enable it in their MCP settings, connected apps, or Claude integration settings
+- **Do not** infer that Connect AI is connected based on MCP server references in system context or artifact configurations. Only confirm availability through tool_search results.
+
+If the user asks how to connect, direct them to the CData Connect AI documentation for adding a connection: https://docs.cloud.cdata.com/en/Sources#add-a-connection
+
 ## Core discovery workflow
 
 The Connect AI MCP enforces a discovery order. Three of the discovery tools (`getSchemas`, `getTables`, `getColumns`) carry an explicit precondition: **`getInstructions` must have been called for the relevant driver first**. Skipping this is the single most common cause of wasted turns.
@@ -33,6 +46,11 @@ The Connect AI MCP enforces a discovery order. Three of the discovery tools (`ge
 Follow this order:
 
 1. **`getCatalogs`** — list available connections. Call once per conversation. Cache the result mentally; don't re-call unless the user adds a connection mid-session.
+
+**Connection disambiguation:** If `getCatalogs` returns multiple connections and the user has not specified which data source to use, do NOT guess. Instead:
+- If the user named a platform (e.g. "Salesforce," "SQL Server"), filter the catalog list to matching connections and ask which specific connection to use if there are multiple
+- If the user's question is ambiguous (e.g. "show me accounts" without naming a system), present a brief summary of available connection types and ask which one they want to query
+- Do not default to a connection based on assumed domain mapping (e.g. "accounts" does not always mean CRM)
 
 2. **`getInstructions(driverName=<n>)`** — REQUIRED before any schema/table/column call for that driver. The instruction payload contains driver-specific hints that are NOT in Claude's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, pagination conventions, and column-naming idioms. Call this once per driver per conversation. Re-read the output carefully — it is the highest-leverage context available.
 
@@ -70,8 +88,10 @@ Before assuming there's no data:
 ### Timeout or very slow query
 
 1. Add `LIMIT` — most business questions want top-N, not everything
-2. Push filters earlier — avoid `SELECT *` and avoid unnecessary joins
-3. Check the driver instructions for pagination or result-size hints specific to that connector
+2. Set filters in queries early — prefer date fields like CreatedDate or LastModifiedDate for large tables
+3. Avoid `SELECT *` — specify only the relevant fields needed for the task
+4. Remove unnecessary JOINs — simplify to only the joins required to answer the question
+5. Check the driver instructions for result-size and pagination hints specific to that connector — some drivers (e.g. SAP, API Connector) support configurable page sizes or require explicit pagination handling
 
 ### `getTables` returns an incomplete or empty list
 
@@ -80,6 +100,14 @@ Almost always means `getInstructions` was skipped, or that the driver needs a sc
 ### User says "that's the wrong <number / customer / ticket>"
 
 Do not guess a correction. Run `getColumns` on the source table, show the user the column list, and ask which field they expected the query to filter or return on. Tenant-specific column naming is the most common root cause.
+
+### Unexpected results or empty tables on a connection you chose
+
+If a query returns 0 rows on a table you expect to have data, or the data doesn't match what the user described:
+
+1. Before trying alternative tables or queries on the same connection, ask the user: "I'm currently querying [connection name]. Is this the right data source for what you're looking for?"
+2. If the user didn't originally specify a connection and you selected one, this is especially important — your initial selection may have been wrong
+3. Do not adapt indefinitely within a connection that isn't producing the expected results
 
 ## Connector-family and specific skills
 
