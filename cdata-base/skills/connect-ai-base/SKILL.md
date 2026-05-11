@@ -73,7 +73,7 @@ Once you have chosen Option 2, identify which discovery path applies by checking
    - If **yes** → follow that skill's instructions and proceed to step #4.
    - If **no** → call `getInstructions` before proceeding.
 
-3. **`getInstructions(driverName=<n>)`** — REQUIRED before any `getSchemas`, `getTables`, or `getColumns` call for a driver with no loaded skill. The payload contains driver-specific hints not in the LLM's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, and column-naming idioms. Call once per driver per conversation and read the output carefully — it is the highest-leverage context available.
+3. **`getInstructions(driverName=<n>)`** — REQUIRED before any `getSchemas`, `getTables`, or `getColumns` call for a driver with no loaded skill. The payload contains driver-specific hints not in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, and column-naming idioms. Call once per driver per conversation and read the output carefully — it is the highest-leverage context available.
 
 4. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for well-known systems (Salesforce, Workday, SQL Server). Tenants may have custom objects, renamed fields, disabled tables, or non-standard schemas. Call `getColumns` before any `queryData` that references specific columns for the first time.
 
