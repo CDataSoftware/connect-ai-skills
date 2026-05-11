@@ -34,10 +34,10 @@ Call tool_search to verify Connect AI tools exist. MCP server references in syst
 If the server is not connected:
 - **Do not** attempt workarounds such as building artifacts, fetching the MCP endpoint directly, or using web_fetch against the Connect AI API
 - **Do** inform the user that the CData Connect AI MCP server is not currently connected
-- **Do** suggest they enable it in their MCP settings, connected apps, or Claude integration settings
+- **Do** suggest they enable it in their MCP settings, connected apps, or integration settings
 - **Do not** infer that Connect AI is connected based on MCP server references in system context or artifact configurations. Only confirm availability through tool_search results.
 
-If the user asks how to connect, direct them to the CData Connect AI documentation for adding a connection: https://docs.cloud.cdata.com/en/Sources#add-a-connection
+If the user asks how to connect, direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
 
 ## Core discovery workflow
 
