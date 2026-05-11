@@ -52,7 +52,7 @@ Follow this order:
 - If the user's question is ambiguous (e.g. "show me accounts" without naming a system), present a brief summary of available connection types and ask which one they want to query
 - Do not default to a connection based on assumed domain mapping (e.g. "accounts" does not always mean CRM)
 
-2. **`getInstructions(driverName=<n>)`** — REQUIRED before any schema/table/column call for that driver. The instruction payload contains driver-specific hints that are NOT in Claude's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, pagination conventions, and column-naming idioms. Call this once per driver per conversation. Re-read the output carefully — it is the highest-leverage context available.
+2. **`getInstructions(driverName=<n>)`** — REQUIRED before any schema/table/column call for that driver. The instruction payload contains driver-specific hints that are NOT in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, pagination conventions, and column-naming idioms. Call this once per driver per conversation. Re-read the output carefully — it is the highest-leverage context available.
 
 3. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for systems that are well-known outside CData (Salesforce, Workday, SQL Server). The tenant may have custom objects, renamed fields, disabled tables, or non-standard schemas. `getColumns` in particular should be called before any `queryData` that references specific columns for the first time.
 
