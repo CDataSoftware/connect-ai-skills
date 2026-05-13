@@ -1,76 +1,53 @@
-# CData Connect AI Skills for Claude
+# CData Connect AI Skills
 
 > [!IMPORTANT]
-> This repo is under development. Additional connector-family skills (`cdata-crm`, `cdata-erp`, `cdata-hcm`, `cdata-ticketing`, `cdata-analytics`) and connector-specific skills are in development.
+> This repository is under development. Additional connector-family skills (`connect-ai-crm`, `connect-ai-erp`, `connect-ai-hcm`, `connect-ai-ticketing`, `connect-ai-analytics`, `connect-ai-files`) and connector-specific skills are in development.
 
-Plugins for **Claude Code** and **Claude Cowork** containing Skills that guide Claude through the correct discovery workflow, query construction patterns, and error-recovery techniques when working with [CData Connect AI](https://www.cdata.com/ai/).
+## Installation
 
-## Plugins and skills
+Install every skill in this repo:
 
-<details>
-<summary><strong><code>cdata-base</code> plugin</strong></summary>
+```
+npx skills add CDataSoftware/connect-ai-skills
+```
 
-| Skill | Trigger | Description |
-|---|---|---|
-| `connect-ai-base` | Auto / `/cdata-base:connect-ai-base` | **Base skill.** Required discovery workflow (`getInstructions` → schema → query), common error patterns. Load this first — all other skills compose on top of it. |
+Install a specific skill by name (the folder name under [`skills/`](skills/)):
 
-</details>
+```
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base
+```
 
+Pass `--skill` multiple times to install several skills in one command:
+
+```
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm
+```
+
+### Available skills
+
+| Skill | Description |
+|---|---|
+| [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, and common error recovery. Load this first — all other skills compose on top of it. |
+
+Additional connector-family skills (`connect-ai-crm`, `connect-ai-erp`, `connect-ai-hcm`, `connect-ai-ticketing`, `connect-ai-analytics`, `connect-ai-files`) and connector-specific skills will be listed here as they ship.
 
 ## Prerequisites
 
 - **CData Connect AI** account with at least one connection configured
-- The **Connect AI MCP server** added to your Claude environment (see [Connect AI MCP setup](https://docs.cloud.cdata.com/en/Clients/Claude-Client))
+- The **Connect AI MCP server** added to your AI integration (see [Connect AI Integrations - AI Tools](https://docs.cloud.cdata.com/en/Integrations#ai-tools))
 
-## Installation
-
-### Claude Cowork
-
-1. Select Customize
-2. Go to Browse plugins → Personal → +
-3. Select Add marketplace from GitHub
-4. Enter: CDataSoftware/connect-ai-skills
-
-### Claude Code (CLI)
-
-```
-# Step 1: Add the marketplace
-/plugin marketplace add CDataSoftware/connect-ai-skills
-
-# Step 2: Install individual plugins
-/plugin install cdata-base@connect-ai-skills
-```
-
-Skills are available immediately in every new session. To update the plugin later:
-
-```
-/plugin marketplace update cdata-base@connect-ai-skills
-```
-
-To uninstall the plugin:
-
-```
-/plugin uninstall cdata-base@connect-ai-skills
-```
-
-## Usage
-
-Skills activate automatically when Claude detects a relevant question. You can also invoke them explicitly:
-
-```
-/cdata-base:connect-ai-base
-```
-
-## Available Plugins
-1. **cdata-base** - Enforces the required Connect AI MCP discovery workflow and covers common query patterns and error recovery for any connector.
 
 ## Contributing
 
-Each plugin in this repo lives in its own top-level folder containing a `plugin.json` and a `skills/` directory. Connector-family plugins (e.g. `cdata-crm`, `cdata-ticketing`, `cdata-erp`) and connector-specific plugins (e.g. `cdata-salesforce`, `cdata-jira`) follow the same structure as the base plugin:
+Each skill lives in its own folder under [`skills/`](skills/) and consists of a single `SKILL.md` file with YAML frontmatter. The folder name is the skill's installable name (e.g. `--skill connect-ai-base` maps to [`skills/connect-ai-base/`](skills/connect-ai-base/)).
 
-Each new plugin must also be registered in [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) so it can be installed via `/plugin install <plugin-name>@connect-ai-skills`.
+To add a new skill:
 
-See [`cdata-base/plugin.json`](cdata-base/plugin.json) and [`cdata-base/skills/connect-ai-base/SKILL.md`](cdata-base/skills/connect-ai-base/SKILL.md) as references for `plugin.json` fields and SKILL frontmatter / section conventions.
+1. Create a new folder under `skills/` named after the skill (e.g. `skills/connect-ai-crm/`).
+2. Add a `SKILL.md` file with the required frontmatter (`name`, `description`, `license`, `metadata`). Use [`skills/connect-ai-base/SKILL.md`](skills/connect-ai-base/SKILL.md) as the reference for frontmatter fields and section conventions.
+3. Add a row for the new skill to the **Available skills** table above.
+
+Connector-family skills (e.g. `connect-ai-crm`, `connect-ai-erp`) and connector-specific skills (e.g. `connect-ai-salesforce`, `connect-ai-jira`) follow the same flat layout — there is no plugin manifest or marketplace registration step.
 
 ## License
 
