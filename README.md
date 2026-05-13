@@ -12,7 +12,7 @@ Plugins for **Claude Code** and **Claude Cowork** containing Skills that guide C
 
 | Skill | Trigger | Description |
 |---|---|---|
-| `base` | Auto / `/cdata-base:base` | **Base skill.** Required discovery workflow (`getInstructions` → schema → query), common error patterns. Load this first — all other skills compose on top of it. |
+| `connect-ai-base` | Auto / `/cdata-base:connect-ai-base` | **Base skill.** Required discovery workflow (`getInstructions` → schema → query), common error patterns. Load this first — all other skills compose on top of it. |
 
 </details>
 
@@ -58,7 +58,7 @@ To uninstall the plugin:
 Skills activate automatically when Claude detects a relevant question. You can also invoke them explicitly:
 
 ```
-/cdata-base:base
+/cdata-base:connect-ai-base
 ```
 
 ## Available Plugins
@@ -70,7 +70,7 @@ Each plugin in this repo lives in its own top-level folder containing a `plugin.
 
 Each new plugin must also be registered in [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) so it can be installed via `/plugin install <plugin-name>@connect-ai-skills`.
 
-See [`cdata-base/plugin.json`](cdata-base/plugin.json) and [`cdata-base/skills/base/SKILL.md`](cdata-base/skills/base/SKILL.md) as references for `plugin.json` fields and SKILL frontmatter / section conventions.
+See [`cdata-base/plugin.json`](cdata-base/plugin.json) and [`cdata-base/skills/connect-ai-base/SKILL.md`](cdata-base/skills/connect-ai-base/SKILL.md) as references for `plugin.json` fields and SKILL frontmatter / section conventions.
 
 ## License
 
