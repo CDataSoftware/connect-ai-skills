@@ -39,33 +39,87 @@ If the server is not connected:
 
 If the user asks how to connect, direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
 
-## Core discovery workflow
+## Connect AI MCP — Core Discovery Workflow
 
-The Connect AI MCP enforces a discovery order. Three of the discovery tools (`getSchemas`, `getTables`, `getColumns`) carry an explicit precondition: **`getInstructions` must have been called for the relevant driver first**. Skipping this is the single most common cause of wasted turns.
+### Step 1: Decide how you will answer the request
 
-Follow this order:
+Before any discovery or data retrieval, ask: **what is the best tool set to answer this prompt?**
 
-1. **`getCatalogs`** — list available connections. Call once per conversation. Cache the result mentally; don't re-call unless the user adds a connection mid-session.
+**Option 1 — Specific action tools**
+Does the available toolset include named action tools that directly address the request? (Examples: `list_accounts`, `update_contact`, `create_task`, `get_opportunity`.) If yes, prefer these. They are purpose-built for the operation and require no discovery workflow. Proceed directly to calling the relevant action tool. Do not run the discovery flow below.
 
-**Connection disambiguation:** If `getCatalogs` returns multiple connections and the user has not specified which data source to use, do NOT guess. Instead:
-- If the user named a platform (e.g. "Salesforce," "SQL Server"), filter the catalog list to matching connections and ask which specific connection to use if there are multiple
-- If the user's question is ambiguous (e.g. "show me accounts" without naming a system), present a brief summary of available connection types and ask which one they want to query
-- Do not default to a connection based on assumed domain mapping (e.g. "accounts" does not always mean CRM)
+**Option 2 — Universal tools**
+If no specific action tool fits the request — or if the request requires ad-hoc querying, exploration, or cross-object work that action tools don't cover — use the universal tools (`queryData`, `getTables`, `getColumns`, etc.) and follow the discovery path below.
 
-2. **`getInstructions(driverName=<n>)`** — REQUIRED before any schema/table/column call for that driver. The instruction payload contains driver-specific hints that are NOT in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, pagination conventions, and column-naming idioms. Call this once per driver per conversation. Re-read the output carefully — it is the highest-leverage context available.
+---
 
-3. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for systems that are well-known outside CData (Salesforce, Workday, SQL Server). The tenant may have custom objects, renamed fields, disabled tables, or non-standard schemas. `getColumns` in particular should be called before any `queryData` that references specific columns for the first time.
+### Universal Tool Discovery Paths
 
-4. **`queryData`** — execute SQL. Always use the fully-qualified name `Catalog.Table` (or `Catalog.Schema.Table` where applicable). Always apply `LIMIT` on exploratory or aggregate queries unless the user explicitly requested full results.
+Once you have chosen Option 2, identify which discovery path applies by checking what tools are available.
 
-For stored-procedure work, the parallel sequence is `getProcedures` → `getProcedureParameters` → `executeProcedure`. The same getInstructions-first rule applies.
+---
 
-### Precondition check (decision tree)
+#### Path A: Generic MCP Server
+*Signal: a `getCatalogs` tool is present.*
 
-Before calling `getSchemas`, `getTables`, or `getColumns` for any driver, ask: **Have I already called `getInstructions` for this driver in this conversation?**
+1. **`getCatalogs`** — list available connections. Call once per conversation. Cache the result; do not re-call.
 
-- If yes → proceed
-- If no → call `getInstructions` first. Do not proceed until its output is read
+   **Connection disambiguation:** If `getCatalogs` returns multiple connections and the user has not specified which data source to use, do NOT guess. Instead:
+   - If the user named a platform (e.g. "Salesforce," "SQL Server"), filter the catalog list to matching connections and ask which specific connection to use if there are multiple
+   - If the user's question is ambiguous (e.g. "show me accounts" without naming a system), present a brief summary of available connection types and ask which one they want to query
+   - Do not default to a connection based on assumed domain mapping (e.g. "accounts" does not always mean CRM)
+
+2. **Check for a loaded skill** — before calling any schema/table/column tool for a driver, ask: *do I have a driver-specific skill already loaded for this data source?*
+   - If **yes** → follow that skill's instructions and proceed to step #4.
+   - If **no** → call `getInstructions` before proceeding.
+
+3. **`getInstructions(driverName=<n>)`** — REQUIRED before any `getSchemas`, `getTables`, or `getColumns` call for a driver with no loaded skill. The payload contains driver-specific hints not in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, and column-naming idioms. Call once per driver per conversation and read the output carefully — it is the highest-leverage context available.
+
+4. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for well-known systems (Salesforce, Workday, SQL Server). Tenants may have custom objects, renamed fields, disabled tables, or non-standard schemas. Call `getColumns` before any `queryData` that references specific columns for the first time.
+
+5. **`queryData`** — execute SQL. Always use the fully-qualified name `Catalog.Table` (or `Catalog.Schema.Table` where applicable). Always apply `LIMIT` on exploratory queries unless the user explicitly requested full results.
+
+For stored procedures: `getProcedures` → `getProcedureParameters` → `executeProcedure`. The `getInstructions`-first rule applies here too.
+
+---
+
+#### Path B: Toolkit — Universal Tools (connections or workspaces)
+*Signal: no `getCatalogs`.*
+
+**Connection targeting:** If the toolkit exposes tools for multiple connections (e.g. `jira1_*`, `confluence_*`, `bullhorn_*`), identify which connection is relevant to the user's request before calling any tools. If ambiguous, ask the user which data source they mean. Do not assume — tools that work on one connection may not exist or may be disabled on another.
+
+1. **Check for a loaded skill** — do I have a driver-specific skill already loaded for this data source?
+   - If **yes** → follow that skill's instructions and proceed to step #3.
+   - If **no** → check to see if there is a tool `<connection_name>_get_instructions`. If there is, proceed to step #2; if not, proceed to step #3.
+
+2. **`<connection_name>_get_instructions`** *(if present)* — same purpose as Path A. Call once per conversation and read the output carefully before continuing.
+
+3. **`<connection_name>_get_schemas`** *(if present)* — only available when the source has multiple schemas. If `<connection_name>_get_schemas` is not present, skip directly to `<connection_name>_get_tables`.
+
+4. **`<connection_name>_get_tables` / `<connection_name>_get_columns`** *(if present)* — discover structure. Same rules as Path A: do not guess names; call `<connection_name>_get_columns` before referencing specific columns in `<connection_name>_queryData`.
+
+---
+
+### Precondition Decision Tree (Paths A and B)
+
+Before calling tools to retrieve schemas, tables, and columns for any driver:
+
+```
+Do I have a driver-specific skill loaded for this source?
+├── YES → follow that skill
+└── NO → Is getInstructions available?
+    ├── YES → call getInstructions first, then proceed
+    └── NO  → proceed directly to get schemas or get tables
+```
+
+---
+
+### Universal Rules (all paths)
+
+- Never guess table or column names, regardless of how well-known the source system is.
+- Always apply `LIMIT` on exploratory or diagnostic queries unless the user explicitly requested full results.
+- Cache catalog and instruction results mentally for the conversation — do not re-call unnecessarily.
+- For multi-schema sources, always qualify names as `Schema.Table` or `Catalog.Schema.Table` as appropriate for the context.
 
 ## Common error recovery patterns
 
@@ -122,4 +176,3 @@ When a driver has deep quirks, or when a pattern isn't covered by the discovery 
 - **cdata-<specific-connector>** — connector-level quirks (e.g. Workday WQL idioms, Salesforce custom-object naming, NetSuite saved-search tables).
 
 When composing a response, load the most specific skill available and fall back to the family, then this base skill.
-
