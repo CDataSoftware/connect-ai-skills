@@ -5,22 +5,25 @@
 
 ## Installation
 
+> [!NOTE]
+> `connect-ai-base` must be enabled alongside any other skill in this repo — all connector-family and connector-specific skills build on top of it. Always include `--skill connect-ai-base` when installing other skills individually.
+
 Install every skill in this repo:
 
 ```
 npx skills add CDataSoftware/connect-ai-skills
 ```
 
-Install a specific skill by name (the folder name under [`skills/`](skills/)):
+Install a specific skill by name (the folder name under [`skills/`](skills/)). Pair it with `connect-ai-base`:
 
 ```
-npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm
 ```
 
 Pass `--skill` multiple times to install several skills in one command:
 
 ```
-npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm --skill connect-ai-salesforce
 ```
 
 ### Available skills
