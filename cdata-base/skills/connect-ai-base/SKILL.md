@@ -71,8 +71,6 @@ Example:
 SELECT * FROM [MyJiraConnection].[Jira].[Issues] LIMIT 10
 ```
 
-Always verify catalog, schema, and table names via discovery tools rather than assuming.
-
 ---
 
 ### Universal Tool Discovery Paths
