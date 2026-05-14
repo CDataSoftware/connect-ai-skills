@@ -53,6 +53,28 @@ If no specific action tool fits the request — or if the request requires ad-ho
 
 ---
 
+### Query Naming Convention
+
+All queries in Connect AI use a three-part fully-qualified name:
+
+```
+[Catalog].[Schema].[Table]
+```
+
+Where:
+- `[Catalog]` = the user-defined connection name (discovered via `getCatalogs` or toolkit tool names)
+- `[Schema]` = the schema name. For single-schema drivers, this is named after the driver itself (e.g., `Jira`, `SageIntacct`, `BullhornCRM`). Multi-schema sources expose multiple options (e.g., Workday exposes `REST`, `WQL`, `Reports`, and `SOAP`)
+- `[Table]` = the target table
+
+Example:
+```sql
+SELECT * FROM [MyJiraConnection].[Jira].[Issues] LIMIT 10
+```
+
+Always verify catalog, schema, and table names via discovery tools rather than assuming.
+
+---
+
 ### Universal Tool Discovery Paths
 
 Once you have chosen Option 2, identify which discovery path applies by checking what tools are available.
@@ -77,7 +99,7 @@ Once you have chosen Option 2, identify which discovery path applies by checking
 
 4. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for well-known systems (Salesforce, Workday, SQL Server). Tenants may have custom objects, renamed fields, disabled tables, or non-standard schemas. Call `getColumns` before any `queryData` that references specific columns for the first time.
 
-5. **`queryData`** — execute SQL. Always use the fully-qualified name `Catalog.Table` (or `Catalog.Schema.Table` where applicable). Always apply `LIMIT` on exploratory queries unless the user explicitly requested full results.
+5. **`queryData`** — execute SQL. Always use the fully-qualified name `[Catalog].[Schema].[Table]`. Always apply `LIMIT` on exploratory queries unless the user explicitly requested full results.
 
 For stored procedures: `getProcedures` → `getProcedureParameters` → `executeProcedure`. The `getInstructions`-first rule applies here too.
 
@@ -119,7 +141,13 @@ Do I have a driver-specific skill loaded for this source?
 - Never guess table or column names, regardless of how well-known the source system is.
 - Always apply `LIMIT` on exploratory or diagnostic queries unless the user explicitly requested full results.
 - Cache catalog and instruction results mentally for the conversation — do not re-call unnecessarily.
-- For multi-schema sources, always qualify names as `Schema.Table` or `Catalog.Schema.Table` as appropriate for the context.
+- For multi-schema sources, always qualify names as `[Catalog].[Schema].[Table]`.
+
+## SQL Dialect & Supported Functions
+
+CData Connect AI drivers are SQL-92 compliant and also support functions from other SQL dialects (e.g., T-SQL). Before assuming a function is unsupported, consult the CData SQL Reference: https://docs.cloud.cdata.com/en/SQL-Reference/SQL-Reference
+
+When a user asks whether a specific function is supported (e.g., DATEADD, ISNULL, CONVERT), either check the reference above or test empirically with a simple query against a known table.
 
 ## Common error recovery patterns
 
@@ -135,7 +163,7 @@ The column name is almost always wrong, not missing. Do NOT retry with a close v
 
 Before assuming there's no data:
 
-1. Run a bounded count: `SELECT COUNT(*) FROM <catalog>.<table>` — does the table have rows at all?
+1. Run a bounded count: `SELECT COUNT(*) FROM [Catalog].[Schema].[Table]` — does the table have rows at all?
 2. Check filter value casing and whitespace — string comparisons are usually case-sensitive
 3. Verify the connection's access scope with the user — some tenants restrict visibility by user/role at the connector level
 
