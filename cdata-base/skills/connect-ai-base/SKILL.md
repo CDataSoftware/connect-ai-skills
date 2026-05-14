@@ -1,6 +1,6 @@
 ---
 name: connect-ai-base
-description: Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data (CRM, HCM, ERP, ticketing, analytics, databases). Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery. Load connector-family (cdata-crm, cdata-hcm, cdata-erp) or connector-specific (cdata-salesforce, cdata-workday, etc.) skills on top for deeper patterns.
+description: Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data. This includes: questions for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, Jira, SQL Server, Snowflake, etc.); requests to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "pull up recent orders"); the user naming a connector or data source; business-domain questions ("top customers," "open tickets," "headcount by dept," "pipeline by stage") when at least one Connect AI connection is available; or conversations already involving Connect AI tool calls. Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery, and SQL dialect guidance. Load connector-family (cdata-crm, cdata-hcm, cdata-erp) or connector-specific (cdata-salesforce, cdata-workday) skills on top for deeper patterns.
 license: Apache-2.0
 metadata:
   author: CData Software
@@ -10,16 +10,6 @@ metadata:
 # CData Connect AI — Base Skill
 
 This skill governs how to use the CData Connect AI MCP server to answer business questions against live enterprise data. It encodes the discovery workflow the MCP requires, plus the error-recovery patterns that resolve the most common failure modes.
-
-## When to use this skill
-
-Load this skill when any of the following hold:
-
-- The user's question asks for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, SQL Server, Snowflake, Zendesk, etc.)
-- The user asks to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "what data do I have," "pull up recent orders" and phrases like "pull from / check / query / look up in [system]")
-- The user names a connector or data source directly
-- The user asks a business-domain question ("top customers", "open tickets", "headcount by dept", "pipeline by stage") and at least one Connect AI connection is available
-- The conversation already involves Connect AI tool calls and the user is iterating
 
 ## When NOT to use
 
