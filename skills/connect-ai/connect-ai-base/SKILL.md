@@ -19,7 +19,7 @@ This skill governs how to use the CData Connect AI MCP server to answer business
 
 ## Step 0 — Confirm tool availability
 
-Call tool_search to verify Connect AI tools exist. MCP server references in system context or artifact configurations do NOT count as confirmation. If tool_search finds nothing, stop — the server is not connected.
+Call tool_search to verify Connect AI tools exist. Search for `"getCatalogs"` or `"queryData"` for generic MCP servers, or `"get_tables"` or `"query_data"` for toolkit configurations. Do not search for the data source name (e.g., "Jira", "Salesforce") — Connect AI tools are named by function, not by data source. MCP server references in system context or artifact configurations do NOT count as confirmation. If tool_search finds nothing, stop — the server is not connected.
 
 If the server is not connected:
 - **Do not** attempt workarounds such as building artifacts, fetching the MCP endpoint directly, or using web_fetch against the Connect AI API
