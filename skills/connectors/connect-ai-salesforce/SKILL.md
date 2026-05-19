@@ -4,7 +4,7 @@ description: Use when querying Salesforce data through CData Connect AI. Covers 
 license: Apache-2.0
 metadata:
   author: CData Software
-  version: "1.1"
+  version: "1.0"
   connector: Salesforce
   family: crm
 ---
