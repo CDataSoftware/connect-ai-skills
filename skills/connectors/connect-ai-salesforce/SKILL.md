@@ -394,32 +394,68 @@ Response includes `FileData` (base64-encoded content), `FileName`, `Success`, an
 
 ## Toolkit Procedure Calls
 
-When executing stored procedures via a **toolkit** surface (e.g. `salesforce_basic_lw_execute_procedure`) rather than the generic MCP `executeProcedure` tool, parameter names in the parameters object **must include the `@` prefix**. The toolkit exposes raw SQL parameter binding and does not add the prefix automatically.
+When executing stored procedures via a **toolkit** surface (e.g. `salesforce_db_execute_procedure`) rather than the generic MCP `executeProcedure` tool, two rules apply:
 
-**Correct — toolkit:**
+### Rule 1 — Use the bare procedure name in the EXECUTE statement
+
+Do **not** use the fully-qualified `[Catalog].[Schema].ProcedureName` format in the `sql` field. The toolkit already knows the catalog; using the full path causes a catalog resolution error.
+
+**Correct:**
+```
+EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'
+```
+
+**Incorrect — causes "You should specify a catalog" error:**
+```
+EXECUTE [Salesforce_DB].[Salesforce].GetUpdated @ObjectType = 'Account', ...
+```
+
+### Rule 2 — Use inline values, not parameterized binding
+
+Parameter binding via a separate `parameters` object (e.g. `@ObjectType = @ObjectType`) is **not supported** by the toolkit's `execute_procedure` tool. Use inline values directly in the SQL string.
+
+**Correct — toolkit (inline values):**
 ```json
 {
-  "sql": "EXECUTE [MySalesforceConnection].[Salesforce].GetUpdated @ObjectType = @ObjectType, @StartDate = @StartDate, @EndDate = @EndDate",
+  "sql": "EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'"
+}
+```
+
+**Incorrect — toolkit (parameterized binding causes bind error):**
+```json
+{
+  "sql": "EXECUTE GetUpdated @ObjectType = @ObjectType, @StartDate = @StartDate, @EndDate = @EndDate",
   "parameters": {
-    "@ObjectType": { "value": "Account", "type": "string" },
-    "@StartDate":  { "value": "2026-05-01T00:00:00.000Z", "type": "string" },
-    "@EndDate":    { "value": "2026-05-15T23:59:59.000Z", "type": "string" }
+    "@ObjectType": { "value": "Account", "type": "string" }
   }
 }
 ```
 
-**Incorrect — toolkit (missing @ prefix):**
+### ConvertLead — toolkit example
+
 ```json
 {
-  "parameters": {
-    "ObjectType": "Account"
-  }
+  "sql": "EXECUTE ConvertLead @LeadId = '00Q000000000001', @ConvertedStatus = 'Closed - Converted', @DoNotCreateOpportunity = 'true'"
 }
 ```
 
-Omitting the `@` prefix causes a null pointer error: `Cannot invoke "String.startsWith(String)" because "<local12>" is null`.
+### GetUpdated — toolkit example
 
-The generic MCP `executeProcedure` tool handles the `@` prefix internally — this guidance applies only to toolkit `execute_procedure` calls.
+```json
+{
+  "sql": "EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'"
+}
+```
+
+### DownloadAttachment — toolkit example
+
+```json
+{
+  "sql": "EXECUTE DownloadAttachment @Id = '00P000000000001'"
+}
+```
+
+The generic MCP `executeProcedure` tool handles catalog resolution and parameter binding internally — this guidance applies only to toolkit `execute_procedure` calls.
 
 ## Write Operations
 
