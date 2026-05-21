@@ -339,7 +339,16 @@ LIMIT 5
 
 ## Stored Procedures
 
-Business-process procedures — **all live under `Staffing`** on REST connections (verified):
+Procedures on the Workday REST connection share a flat global namespace. On the validation tenant, `getProcedures` returns the same complete procedure list regardless of which functional-area schema is passed, and `executeProcedure` routes calls to Workday based on procedure name alone — the schema parameter is required by the driver but does not partition the procedure namespace. This was verified across multiple schemas including ones with no logical relationship to the procedure being called.
+
+Practical implications:
+- You can call any business-process procedure under any valid schema (`Staffing`, `Procurement`, `Common`, etc.) and the lookup will succeed. The schema is required by the tool signature but functionally decorative.
+- Tables do not share this behavior — table schema membership is real and must be discovered with `getTables`. Only procedures are schema-promiscuous.
+- For readability, prefer the schema closest to the procedure's domain: `Staffing` for worker-lifecycle procedures (Begin/SubmitJobChange, WorkersRequestTimeOff, organization-assignment changes), `Procurement` for requisition procedures (RequisitionsCancel, RequisitionsClose), `Common` for cross-cutting procedures (SendMessage). This is convention, not enforcement.
+
+Caveat: this flat-namespace behavior is empirically observed on one validation tenant. Whether it holds across all Workday tenants and driver versions has not been confirmed.
+
+Representative business-process procedures (call under any schema):
 
 - `BeginJobChange` / `SubmitJobChange`
 - `BeginOrganizationAssignmentChange` / `SubmitOrganizationAssignmentChange`
@@ -348,13 +357,13 @@ Business-process procedures — **all live under `Staffing`** on REST connection
 - `WorkersRequestOneTimePayment`, `WorkersOrganizationAssignmentChanges`
 - `RequisitionsCancel`, `RequisitionsClose`
 
-Run `getProcedures` against `Staffing` for the full list.
+Run `getProcedures` for the full list (any valid schema works).
 
 `Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., `SubmitJobChange` takes `JobChange_Id`, **not** `Id`). The naming convention likely generalizes to other `Submit*` procedures (`SubmitHire`, `SubmitTermination`, etc.), though only `SubmitJobChange` is empirically confirmed. Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday).
 
 ### SendMessage (Common schema)
 
-`SendMessage` exists in both `Common` and `Staffing` on observed tenants with identical 12-parameter signatures — use `Common` as the canonical location since it matches the existing skill posture and is where agents reach by default. For absolute certainty on a given tenant, run `getProcedures` against both schemas to verify:
+`SendMessage` follows the flat-namespace behavior described above — it is reachable from every valid schema. Use `Common` as the conventional call site (it matches existing skill posture and is the most domain-appropriate location for a cross-cutting messaging procedure):
 
 ```json
 {
@@ -370,6 +379,21 @@ Run `getProcedures` against `Staffing` for the full list.
 ```
 
 `NotificationType_Id` and recipient `id` values are Workday GUIDs — resolve via the appropriate value tables.
+
+### Error code legend (observed on validation tenant)
+
+`executeProcedure` failures surface error codes from four distinct layers. Stable prefixes (observed on one tenant; not confirmed as universal):
+
+| Code prefix | Layer | Trigger | Example message |
+|---|---|---|---|
+| `STMT RSB <name> is not a valid stored procedure` | CData driver (procedure resolution) | Procedure name doesn't exist | `STMT RSB <ThisIsNotARealProcedure> is not a valid stored procedure.` |
+| `STMT SQL [60003]` | CData driver (input validation) | Required input parameter missing or empty | `STMT SQL [60003] The input [Requisitions_Id] must have a value to execute the [RequisitionsCancel] procedure.` |
+| `STMT HTTP [40002] [S22] permission denied` | Workday API (authorization) | OAuth client lacks scope for the operation on this entity | `STMT HTTP [40002] [S22] permission denied.` |
+| `STMT HTTP [40006] [S21] not found: <X>` | Workday API (entity resolution) | GUID malformed, nonexistent, or resolves to wrong entity type for the endpoint | `STMT HTTP [40006] [S21] not found: 00000000000000000000000000000000.` |
+
+Distinguish driver-layer errors from Workday-layer errors when debugging:
+- `STMT RSB` and `STMT SQL [60003]` mean the call never reached Workday — fix the procedure name or parameter set and retry.
+- `STMT HTTP [40002]` and `STMT HTTP [40006]` mean Workday received the call and rejected it — fix the GUID, entity-type match, or OAuth client scope, not the call shape.
 
 ## Write Operations (REST only)
 
@@ -395,4 +419,5 @@ REST connections support writes where the underlying Workday API allows it; **WQ
 - **Reports column names** often contain dots and spaces — always quote with `[]`.
 - **`Id` push-down depends on entity category** (base = fast; child = client-side after full fetch). For child entities, filter on the parent `Id` instead.
 - **Change resources use a strict Begin/Submit pair** — neither stands alone.
-- **Driver `Required=false` on procedure parameters is often misleading.** Workday business-process rules frequently reject calls that omit parameters the Connect AI driver reports as optional. Treat any parameter named in a procedure's primary semantics — the ID of the entity being acted on, reason codes for state changes, comments for business-process steps — as functionally required regardless of what `getProcedureParameters` says. Observed cases: `RequisitionsCancel` (`Comments`, `ReasonCode_Id`), `BeginJobChange` (`Worker_Id`, `Date`, `Reason_Id`), `SubmitJobChange`.
+- **Procedures share a flat namespace; tables don't.** On the Workday REST driver (observed on the validation tenant), `getProcedures`, `getProcedureParameters`, and `executeProcedure` all ignore the schema parameter for procedure resolution — any valid schema name works. Tables behave normally and require correct schema membership. Don't trust `getProcedures` schema-filtered output to indicate where a procedure "lives"; use it for procedure discovery (by name pattern) rather than schema-membership inference.
+- **Driver `Required=false` on procedure parameters is often misleading.** Both the CData driver and Workday business-process rules may reject calls that omit parameters reported as `Required=false`. The CData driver surfaces these as `STMT SQL [60003] The input [X] must have a value...` errors before the call leaves the driver; Workday business-process rules surface as `STMT HTTP [40006] [S21] not found: ...` or `STMT HTTP [40002] [S22] permission denied`. In either case the operative rule is the same: treat any parameter named in a procedure's primary semantics — the ID of the entity being acted on, reason codes for state changes, comments for business-process steps — as functionally required regardless of metadata. Observed cases: `RequisitionsCancel` (`Comments`, `ReasonCode_Id`), `BeginJobChange` (`Worker_Id`, `Date`, `Reason_Id`), `SubmitJobChange`.
