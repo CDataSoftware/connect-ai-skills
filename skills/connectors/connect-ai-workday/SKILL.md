@@ -350,11 +350,11 @@ Business-process procedures — **all live under `Staffing`** on REST connection
 
 Run `getProcedures` against `Staffing` for the full list.
 
-`Begin*` / `Submit*` are always called in pairs — `Begin` returns the change ID, `Submit` consumes it. Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday).
+`Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., `SubmitJobChange` takes `JobChange_Id`, **not** `Id`). The naming convention likely generalizes to other `Submit*` procedures (`SubmitHire`, `SubmitTermination`, etc.), though only `SubmitJobChange` is empirically confirmed. Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday).
 
 ### SendMessage (Common schema)
 
-`SendMessage` lives under `Common` rather than `Staffing`:
+`SendMessage` exists in both `Common` and `Staffing` on observed tenants with identical 12-parameter signatures — use `Common` as the canonical location since it matches the existing skill posture and is where agents reach by default. For absolute certainty on a given tenant, run `getProcedures` against both schemas to verify:
 
 ```json
 {
@@ -395,3 +395,4 @@ REST connections support writes where the underlying Workday API allows it; **WQ
 - **Reports column names** often contain dots and spaces — always quote with `[]`.
 - **`Id` push-down depends on entity category** (base = fast; child = client-side after full fetch). For child entities, filter on the parent `Id` instead.
 - **Change resources use a strict Begin/Submit pair** — neither stands alone.
+- **Driver `Required=false` on procedure parameters is often misleading.** Workday business-process rules frequently reject calls that omit parameters the Connect AI driver reports as optional. Treat any parameter named in a procedure's primary semantics — the ID of the entity being acted on, reason codes for state changes, comments for business-process steps — as functionally required regardless of what `getProcedureParameters` says. Observed cases: `RequisitionsCancel` (`Comments`, `ReasonCode_Id`), `BeginJobChange` (`Worker_Id`, `Date`, `Reason_Id`), `SubmitJobChange`.
