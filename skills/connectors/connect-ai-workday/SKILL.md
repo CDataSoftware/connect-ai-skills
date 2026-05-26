@@ -1,6 +1,6 @@
 ---
 name: connect-ai-workday
-description: Use when querying Workday data through CData Connect AI. Covers Workday's multi-schema model (REST/WQL/Reports/SOAP), the REST entity-type system, prompt-column GUID lookup chains, value tables, change-resource procedures, and Workday-specific conventions. Composes on top of the connect-ai-base skill.
+description: Use when querying Workday data through CData Connect AI. Covers Workday's multi-connection-type model (REST/WQL/Reports/SOAP), the REST entity-type system, prompt-column GUID lookup chains, value tables, change-resource procedures, and Workday-specific conventions. Composes on top of the connect-ai-base skill.
 license: Apache-2.0
 metadata:
   author: CData Software
@@ -137,12 +137,12 @@ Value tables provide the GUID lookups for `_Prompt` columns. All share these col
 
 1. Initial query returns top-level categories:
    ```sql
-   SELECT * FROM [YourConn].[Staffing].[JobChangesGroupWorkersValues]
+   SELECT * FROM [YourConnection].[Staffing].[JobChangesGroupWorkersValues]
    WHERE [EffectiveDate_Prompt] = '2020-01-01'
    ```
 2. Drill down using a `CollectionToken` from the previous result:
    ```sql
-   SELECT * FROM [YourConn].[Staffing].[JobChangesGroupWorkersValues]
+   SELECT * FROM [YourConnection].[Staffing].[JobChangesGroupWorkersValues]
    WHERE [Collection_Prompt] = 'abcxyz123'
    ```
 3. A row with **NULL `CollectionToken`** is a leaf — use its `Id` as the prompt value.
@@ -232,7 +232,7 @@ Non-obvious columns for the headline entities. Self-explanatory columns (`Id`, `
 ```sql
 SELECT [Id], [Title], [StartDate], [EndDate], [PrimaryLocation_Descriptor],
        [JobType_Descriptor], [TimeType_Descriptor], [Company_Descriptor]
-FROM [YourConn].[Recruiting].[JobPostings]
+FROM [YourConnection].[Recruiting].[JobPostings]
 WHERE [StartDate] >= '2024-01-01'
 ORDER BY [StartDate] DESC
 ```
@@ -243,7 +243,7 @@ ORDER BY [StartDate] DESC
 SELECT [Id], [Descriptor], [RequisitionType_Descriptor],
        [Requester_Descriptor], [Amount_Value], [Amount_Currency],
        [RequisitionDate], [Status_Descriptor]
-FROM [YourConn].[Procurement].[Requisitions]
+FROM [YourConnection].[Procurement].[Requisitions]
 WHERE [FromDate_Prompt] = '2020-01-01'
   AND [ToDate_Prompt] = '2021-12-31'
 ORDER BY [RequisitionDate] DESC
@@ -255,7 +255,7 @@ ORDER BY [RequisitionDate] DESC
 
 ```sql
 SELECT [Id], [Descriptor], [Href]
-FROM [YourConn].[Common].[Organizations]
+FROM [YourConnection].[Common].[Organizations]
 WHERE [OrganizationType_Prompt] = '<organization_type_GUID>'
 ```
 
@@ -266,7 +266,7 @@ WHERE [OrganizationType_Prompt] = '<organization_type_GUID>'
 ```sql
 SELECT [Id], [CaseID], [Title], [CreationDate], [Status_Descriptor],
        [Type_Name], [About_Descriptor], [Assignee_Descriptor]
-FROM [YourConn].[HelpCase].[Cases]
+FROM [YourConnection].[HelpCase].[Cases]
 WHERE [MyCases_Prompt] = 1
   AND [OpenCases_Prompt] = 1
 ORDER BY [CreationDate] DESC
@@ -284,7 +284,7 @@ To query `journalLines` (where available), three GUIDs must be resolved first: `
 
 ```sql
 SELECT [workdayId], [accountingDate], [lastFunctionallyUpdated]
-FROM [YourConn].[CoreAccounting].[journalLines]
+FROM [YourConnection].[CoreAccounting].[journalLines]
 WHERE [company_Prompt] = '<from_step_1>'
   AND [year_Prompt] = '<from_step_2>'
   AND [journalEntryStatus_Prompt] = '<from_step_2>'
@@ -298,7 +298,7 @@ LIMIT 10
 ```sql
 SELECT [employee_ID], [full_Name], [job_Profile_Name],
        [location___Name], [manager_Name], [compa_Ratio], [rating_String]
-FROM [YourConn].[WQL].[cds_Prism_Test_From_Report]
+FROM [YourConnection].[WQL].[cds_Prism_Test_From_Report]
 LIMIT 10
 ```
 
@@ -306,8 +306,8 @@ LIMIT 10
 
 ```sql
 SELECT t1.[employee_ID], t1.[full_Name], t2.[manager_Name], t2.[compa_Ratio]
-FROM [YourConn].[WQL].[cds_Prism_Test_From_Report_1] t1
-INNER JOIN [YourConn].[WQL].[cds_Prism_Test_From_Report_2] t2
+FROM [YourConnection].[WQL].[cds_Prism_Test_From_Report_1] t1
+INNER JOIN [YourConnection].[WQL].[cds_Prism_Test_From_Report_2] t2
   ON t1.[employee_ID] = t2.[employee_ID]
 LIMIT 10
 ```
@@ -318,7 +318,7 @@ Core data sources expose `_Prompt` columns just like REST tables do. `absenceCas
 
 ```sql
 SELECT *
-FROM [YourConn].[WQL].[absenceCasesByWorkerForOrganizationAndDateRangeParms]
+FROM [YourConnection].[WQL].[absenceCasesByWorkerForOrganizationAndDateRangeParms]
 WHERE [organizations_Prompt] = 'abc123def4567890...'
   AND [startDate_Prompt] = '2024-01-01'
   AND [endDate_Prompt] = '2024-12-31'
@@ -332,7 +332,7 @@ Resolve `organizations_Prompt` via a value table on a REST connection (or via a 
 
 ```sql
 SELECT [Worker.Descriptor], [businessTitle], [Job_Profile.Descriptor], [Hire_Date]
-FROM [YourConn].[Reports].[Employee Directory]
+FROM [YourConnection].[Reports].[Employee Directory]
 WHERE [Is_Active_Employee] = 1
 LIMIT 5
 ```
@@ -403,7 +403,7 @@ REST connections support writes where the underlying Workday API allows it; **WQ
 - **Update** — must include `Id`. Child/owned entities require their compound keys. Prompt columns may be required depending on entity type.
 - **Delete** — many entities cannot be deleted directly; use the change-resource pattern (Begin/Submit) instead.
 
-**Two layers control write access:** the Workday business object's own rules (Workday side), and the Connect AI connection's readonly setting (CData side). When a write fails with a permissions error, check both.
+**Two layers control write access:** the Workday business object's own rules (Workday side), and the Connect AI connection's read-only setting (CData side). When a write fails with a permissions error, check both.
 
 ## Workday-Specific Conventions
 
