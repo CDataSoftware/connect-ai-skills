@@ -203,6 +203,7 @@ Pattern: `Line_<DetailType>_<Field>`
 
 - `Id` — Internal identifier
 - `DocNumber` — Document number
+- `SyncToken` — Optimistic-concurrency token; required for `VoidInvoice` / `VoidPayment` / `VoidSalesReceipt` and incremented after any update
 - `TxnDate` — Transaction date
 - `DueDate` — Payment due date
 - `CustomerRef` / `CustomerRef_Name` — Customer (Invoices)
@@ -211,6 +212,9 @@ Pattern: `Line_<DetailType>_<Field>`
 - `Balance` — Outstanding balance (`0` when paid)
 - `HomeTotalAmt` — Total in home currency
 - `LineAggregate` — XML aggregate of all line items (used for INSERT — see Write Operations)
+- `BillEmail_Address` / `BillEmailCc_Address` / `BillEmailBcc_Address` — Email addresses on Invoices. Note that the column name is `BillEmail_Address`, but the corresponding `VoidInvoice` procedure parameter is the bare name `BillEmail`. (`SendInvoice` uses a different parameter name, `EmailAddress`, defaulting to `BillEmail_Address` if omitted — see Stored Procedures.)
+- `EmailStatus` — `NotSet`, `NeedToSend`, or `EmailSent` (Invoices). `BillEmail` is only required as a procedure parameter when `EmailStatus = NeedToSend`
+- `PrivateNote` — Internal note; stamped with "Voided" after `VoidInvoice` / `VoidPayment` / `VoidSalesReceipt`
 
 ### Line-Item Tables (InvoiceLineItems, BillLineItems, JournalEntryLineItems, PurchaseLineItems, etc.)
 
@@ -220,7 +224,12 @@ Pattern: `Line_<DetailType>_<Field>`
 - `Line_SalesItemLineDetail_ItemRef` — Item reference (sales lines)
 - `Line_SalesItemLineDetail_UnitPrice` — Unit price
 - `Line_AccountBasedExpenseLineDetail_AccountRef` — GL account (expense lines)
+- `Line_JournalEntryLineDetail_AccountRef` — GL account (journal entry lines)
+- `Line_JournalEntryLineDetail_AccountRef_Name` — GL account display name (journal entry lines)
+- `Line_JournalEntryLineDetail_PostingType` — `Debit` or `Credit` (journal entry lines)
 - `Line_LinkedTxn_TxnId` / `Line_LinkedTxn_TxnType` — Linked transaction (payment application)
+
+The `Line_<DetailType>_<Field>` prefix follows the line's detail type: `SalesItemLineDetail` on Invoices/SalesReceipts/CreditMemos, `AccountBasedExpenseLineDetail` on Bills/Purchases, `JournalEntryLineDetail` on JournalEntries. Use the detail type that matches the parent transaction table.
 
 ### BalanceSheetSummaryReport
 
@@ -387,13 +396,16 @@ Same cloud-friendly calling pattern as `DownloadPDF` — omit `DownloadFolder` a
 }
 ```
 
-To find attachment IDs, query the `Attachables` table:
+To find attachment IDs, use the `AttachableRefs` companion table — it joins attachments to their parent entities and exposes flat columns directly (no XML parsing needed). `AttachableRefs` already includes `FileName`, `Size`, and `ContentType`, so a join back to `Attachables` is unnecessary for discovery:
 
 ```sql
-SELECT [Id], [FileName], [ContentType], [Size]
-FROM [YourConnection].[QuickBooksOnline].[Attachables]
-WHERE [AttachableRef_EntityRef_Value] = '<transaction-id>'
+SELECT [AttachableId], [FileName], [Size], [ContentType]
+FROM [YourConnection].[QuickBooksOnline].[AttachableRefs]
+WHERE [AttachableRef_EntityRef] = '<transaction-id>'
+  AND [AttachableRef_EntityRef_type] = 'Invoice'
 ```
+
+`AttachableRefs` and `Attachables` are companion tables: `AttachableRefs` exposes the entity-to-attachment relationships with flat columns, while `Attachables` holds attachment-level metadata. The `Attachables` table itself exposes the entity reference only as an XML aggregate column (`AttachableRefAggregate`), so query `AttachableRefs` instead for any "what's attached to transaction X" question. Use the returned `AttachableId` value as the input to `DownloadAttachment`.
 
 ### UploadAttachment — Not currently supported in cloud
 
