@@ -394,64 +394,56 @@ Response includes `FileData` (base64-encoded content), `FileName`, `Success`, an
 
 ## Toolkit Procedure Calls
 
-When executing stored procedures via a **toolkit** surface (e.g. `salesforce_db_execute_procedure`) rather than the generic MCP `executeProcedure` tool, two rules apply:
+When executing stored procedures via a **toolkit** surface (e.g. `salesforce_db_execute_procedure`) rather than the generic MCP `executeProcedure` tool, use the following call shape:
 
-### Rule 1 — Use the bare procedure name in the EXECUTE statement
+- **`EXEC`** keyword (not `EXECUTE`).
+- **Fully-qualified procedure name**: `[Catalog].[Schema].ProcedureName`.
+- **Positional parameter names** `@p1`, `@p2`, `@p3`, ... — each `@pN` maps to the parameter at ordinal position N (1-based) as returned by `get_procedure_parameters`. Named parameters (e.g. `@ObjectType = 'Account'`) are also supported, but positional `@pN` is preferred for consistency across procedures.
+- **Inline values** in the `sql` string. Parameter binding via a separate `parameters` object is not supported by the toolkit's `execute_procedure` tool.
 
-Do **not** use the fully-qualified `[Catalog].[Schema].ProcedureName` format in the `sql` field. The toolkit already knows the catalog; using the full path causes a catalog resolution error.
+You can supply any subset of parameters by ordinal — skipped and out-of-order ordinals are tolerated, so the call only needs to mention the parameters relevant to it.
 
-**Correct:**
-```
-EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'
-```
+### GetUpdated
 
-**Incorrect — causes "You should specify a catalog" error:**
-```
-EXECUTE [Salesforce_DB].[Salesforce].GetUpdated @ObjectType = 'Account', ...
-```
+Parameter map: `@p1` = `ObjectType`, `@p2` = `StartDate`, `@p3` = `EndDate`.
 
-### Rule 2 — Use inline values, not parameterized binding
-
-Parameter binding via a separate `parameters` object (e.g. `@ObjectType = @ObjectType`) is **not supported** by the toolkit's `execute_procedure` tool. Use inline values directly in the SQL string.
-
-**Correct — toolkit (inline values):**
 ```json
 {
-  "sql": "EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'"
+  "sql": "EXEC [Salesforce_DB].[Salesforce].GetUpdated @p1 = 'Account', @p2 = '2026-05-01T00:00:00.000Z', @p3 = '2026-05-15T23:59:59.000Z'"
 }
 ```
 
-**Incorrect — toolkit (parameterized binding causes bind error):**
+### ConvertLead
+
+Parameter map: `@p1` = `AccountId`, `@p2` = `ContactId`, `@p3` = `ConvertedStatus`, `@p4` = `DoNotCreateOpportunity`, `@p5` = `LeadId`, `@p6` = `OpportunityName`, `@p7` = `OverwriteLeadSource`, `@p8` = `OwnerId`, `@p9` = `SendNotificationEmail`.
+
+Required params are `@p3` (`ConvertedStatus`) and `@p5` (`LeadId`); the example below also sets `@p4` (`DoNotCreateOpportunity`):
+
 ```json
 {
-  "sql": "EXECUTE GetUpdated @ObjectType = @ObjectType, @StartDate = @StartDate, @EndDate = @EndDate",
-  "parameters": {
-    "@ObjectType": { "value": "Account", "type": "string" }
-  }
+  "sql": "EXEC [Salesforce_DB].[Salesforce].ConvertLead @p3 = 'Closed - Converted', @p5 = '00Q000000000001', @p4 = 'true'"
 }
 ```
 
-### ConvertLead — toolkit example
+### DownloadAttachment
+
+Parameter map: `@p1` = `ObjectId`, `@p2` = `Id`, `@p3` = `Name`, `@p4` = `LocalPath`, `@p5` = `LightningMode`, `@p6` = `Encoding`, `@p7` = `FileStream`.
+
+Download by attachment ID (`@p2` = `Id`):
 
 ```json
 {
-  "sql": "EXECUTE ConvertLead @LeadId = '00Q000000000001', @ConvertedStatus = 'Closed - Converted', @DoNotCreateOpportunity = 'true'"
+  "sql": "EXEC [Salesforce_DB].[Salesforce].DownloadAttachment @p2 = '00P000000000001'"
 }
 ```
 
-### GetUpdated — toolkit example
+### DownloadContentDocument
+
+Parameter map: `@p1` = `Id`, `@p2` = `Title`, `@p3` = `LocalPath`, `@p4` = `Encoding`, `@p5` = `FileStream`.
 
 ```json
 {
-  "sql": "EXECUTE GetUpdated @ObjectType = 'Account', @StartDate = '2026-05-01T00:00:00.000Z', @EndDate = '2026-05-15T23:59:59.000Z'"
-}
-```
-
-### DownloadAttachment — toolkit example
-
-```json
-{
-  "sql": "EXECUTE DownloadAttachment @Id = '00P000000000001'"
+  "sql": "EXEC [Salesforce_DB].[Salesforce].DownloadContentDocument @p1 = '069000000000001'"
 }
 ```
 
