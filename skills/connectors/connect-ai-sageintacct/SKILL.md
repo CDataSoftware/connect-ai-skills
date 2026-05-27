@@ -248,9 +248,11 @@ LEFT JOIN [YourConnection].[SageIntacct].[Arinvoiceitem] li
 WHERE i.[Recordid] = 'INV-12345'
 ```
 
-### Customer balances (use master, not aggregated invoices)
+### Customer AR balance
+
+For a customer's overall AR balance — the net of invoices, payments, credit memos, and adjustments — use `Customer.Totaldue` directly. It is pre-aggregated and already nets offsetting credits against invoices, which is why `SUM(Arinvoice.Totaldue)` cannot reconstruct it: the invoices table doesn't know about the payments or memos that offset them, so the sum will overstate the true balance. Reach for `Arinvoice.Totaldue` only when the user asks specifically about the balance on an individual invoice.
+
 ```sql
--- Use Customer.Totaldue directly — do not SUM(Arinvoice.Totaldue)
 SELECT [Customerid], [Name], [Totaldue], [Currency]
 FROM [YourConnection].[SageIntacct].[Customer]
 WHERE [Status] = 'active' AND [Totaldue] > 0
