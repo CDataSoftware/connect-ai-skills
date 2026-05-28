@@ -329,8 +329,6 @@ WHERE pli.[Line_LinkedTxn_TxnId] = '<InvoiceId>'
 
 ## Stored Procedures
 
-Parameter binding syntax differs between the QuickBooks Online cai-toolkit and the generic Connect AI MCP. The generic MCP accepts `@`-prefixed named parameters (e.g., `@TxnType='Invoice'`); the toolkit requires bare-name binding (e.g., `TxnType='Invoice'`) and rejects the `@` prefix with a JDBC null-pointer error (`JDBCStatementImpl Cannot invoke String.startsWith because <local12> is null`). If a procedure call fails with that error, drop the `@` prefix and retry with bare-name parameters.
-
 ### VoidInvoice / VoidPayment / VoidSalesReceipt
 
 Void an existing transaction — the record is retained but its financial impact is reversed. Each procedure requires the target transaction's `Id` and current `SyncToken` (fetch from the transaction table first).
