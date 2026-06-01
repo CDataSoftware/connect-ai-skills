@@ -160,12 +160,12 @@ The `Pages.Storage` column contains Confluence's storage format — XHTML with c
 - `ParentId` — Parent page ID (BIGINT-typed but **must be filtered with a quoted string literal** — integer-literal filters have been observed to drop the MCP connection; see Conventions). For multi-level hierarchy work, prefer the `PageChildren` / `PageAncestors` views
 - `OwnerId` — Page owner
 - `URL` / `ItemURL` / `LinksWebui` / `LinksTinyui` — URL forms for the page
-- `CreatedDate` / `CreatedByUserName` / `CreatedByUserPublicName` / `CreatedByAccountId` — Creation metadata. **`CreatedByUserName` on `Pages` is NOT marked deprecated** and remains reliable (unlike on Comments and Attachments)
+- `CreatedDate` / `CreatedByUserName` / `CreatedByUserPublicName` / `CreatedByAccountId` — Creation metadata. `CreatedByUserName` on `Pages` is not marked `[DEPRECATED]`, but has been observed to return NULL on some tenants. For reliable user attribution prefer `CreatedByUserPublicName` (display name) or `CreatedByAccountId` (stable ID). `CreatedByUserName` remains valid syntax but should not be assumed populated.
 - `LastUpdatedDatetime` / `LastUpdatedMessage` / `LastUpdatedNumber` — Last-update metadata
 - `LastUpdatedUserPublicName` / `LastUpdatedUserType` — Last-update user (prefer `LastUpdatedUserPublicName` — `LastUpdatedUserName` is marked `[DEPRECATED]`). **There is no `LastUpdatedAccountId` column on `Pages`**, despite the equivalent existing on `Comments` and `Attachments`. Use `LastUpdatedUserPublicName` for display, and fall back to `VersionUserAccountId` if you need a stable account ID for the latest edit (the latest version's account ID is the same person who last updated the page).
 - `IsLatest` — Whether this row represents the latest version. In practice the `Pages` table only returns latest-version rows; see "Page versions are not a history" in Conventions
 - `VersionNumber` / `VersionDatetime` / `VersionMessage` / `VersionUserPublicName` / `VersionUserAccountId` — Metadata for the currently latest version (`VersionUserName` is `[DEPRECATED]`)
-- `PreviousVersionNumber` / `PreviousVersionDatetime` / `PreviousVersionUserPublicName` / `PreviousVersionUserAccountId` — Metadata for the **immediately previous** version only, carried on the latest-version row (`PreviousVersionUserName` is `[DEPRECATED]`)
+- `PreviousVersionNumber` / `PreviousVersionDatetime` / `PreviousVersionUserPublicName` / `PreviousVersionUserAccountId` — Metadata for the **immediately previous** version only, carried on the latest-version row (`PreviousVersionUserName` is `[DEPRECATED]`). There is no bare `PreviousVersion` column on Pages — each previous-version field has a specific suffix. Use the qualified names listed above (e.g. `PreviousVersionDatetime`, `PreviousVersionUserPublicName`) when filtering or selecting.
 
 ### Comments
 
@@ -194,7 +194,7 @@ The `Pages.Storage` column contains Confluence's storage format — XHTML with c
 - `ContainerId` — Parent page ID
 - `SpaceKey` — Containing space
 - `CreatedDate` — Creation timestamp
-- `CreatedByUserPublicName` / `CreatedByAccountId` — Creation metadata (prefer these — `CreatedByUserName` is `[DEPRECATED]` on Attachments, despite the same column being reliable on Pages)
+- `CreatedByUserPublicName` / `CreatedByAccountId` — Creation metadata (prefer these — `CreatedByUserName` is `[DEPRECATED]` on Attachments)
 - `LastUpdatedDatetime` — Last-update timestamp
 - `LastUpdatedUserPublicName` / `LastUpdatedAccountId` — Last-update user (`LastUpdatedUserName` is `[DEPRECATED]`)
 
@@ -290,12 +290,12 @@ WHERE [PageId] = '<page-id>'
 
 ### Pages Created by a User
 
-`Pages.CreatedByUserName` is the one `*UserName` column on Pages that is NOT deprecated, so it's a valid filter target. For stable identity across other tables, prefer `CreatedByAccountId`.
+For reliable filtering, use `CreatedByAccountId` (stable ID) or `CreatedByUserPublicName` (display name). `CreatedByUserName` is not marked `[DEPRECATED]` on Pages but has been observed to return NULL on some tenants — use whichever column the tenant actually populates.
 
 ```sql
 SELECT [Id], [Title], [SpaceKey], [CreatedDate]
 FROM [YourConnection].[Confluence].[Pages]
-WHERE [CreatedByUserName] = '<user-name>'
+WHERE [CreatedByAccountId] = '<account-id>'
   AND [CreatedDate] >= '2025-01-01'
 ORDER BY [CreatedDate] DESC
 ```
@@ -440,7 +440,7 @@ If a write operation is blocked, two layers control access: the Confluence user'
 - **`Pages.ParentId` requires a quoted-string literal despite being BIGINT-typed**: Filters of the form `WHERE [ParentId] = 65676` (integer literal) have been observed to drop the MCP connection, while `WHERE [ParentId] = '65676'` works. For multi-level hierarchy traversal, prefer the `PageChildren` / `PageAncestors` views.
 - **`Pages.Storage` is XHTML with macros**: The page body is Confluence's storage format, not rendered HTML. Embedded images, links, and macros appear as `<ac:*>` and `<ri:*>` tags. Plain-text extraction requires stripping or parsing those tags.
 - **Images don't render from `Storage` alone**: `<ac:image>` tags reference attachment IDs. To get actual image bytes, follow the **Retrieving Page Images** pattern: query `Attachments` for the page, then call `DownloadAttachment`.
-- **Deprecated `*UserName` columns**: Several legacy username columns are marked `[DEPRECATED]` in the live schema and often return NULL or empty strings: `LastUpdatedUserName`, `VersionUserName`, `PreviousVersionUserName` on `Pages`; `CreatedByUserName`, `LastUpdatedUserName`, `PreviousVersionUserName` on `Comments`; and `CreatedByUserName`, `LastUpdatedUserName`, `PreviousVersionUserName` on `Attachments`. Prefer `*UserPublicName` (display name) or `*AccountId` (stable ID) variants. **One exception:** `Pages.CreatedByUserName` is NOT marked deprecated and remains reliable. The same column on `Attachments` IS deprecated.
+- **Deprecated `*UserName` columns**: Several legacy username columns are marked `[DEPRECATED]` in the live schema and often return NULL or empty strings: `LastUpdatedUserName`, `VersionUserName`, `PreviousVersionUserName` on `Pages`; `CreatedByUserName`, `LastUpdatedUserName`, `PreviousVersionUserName` on `Comments`; and `CreatedByUserName`, `LastUpdatedUserName`, `PreviousVersionUserName` on `Attachments`. Prefer `*UserPublicName` (display name) or `*AccountId` (stable ID) variants. **Partial exception:** `Pages.CreatedByUserName` is not marked `[DEPRECATED]`, but has been observed to return NULL on some tenants — for reliable user attribution prefer `CreatedByUserPublicName` or `CreatedByAccountId`. `CreatedByUserName` remains valid syntax but should not be assumed populated.
 - **`Comments.StorageBody` vs `Pages.Storage`**: The full body column is named differently on the two tables. Comments use `StorageBody` (and `AtlasDocFormatBody`); Pages use `Storage` (and `AtlasDocFormat`). Do not assume `Storage` works on `Comments`.
 - **`VersionNumber` type differs across tables**: INTEGER on `Pages`, VARCHAR on `Comments`. Quote the literal when filtering on Comments.
 - **No `SpaceName` column on Pages or Comments**: Both tables expose `SpaceKey` and `SpaceType` but not the space display name. To include the name in results, join to `Spaces.Name` on `Pages.SpaceKey = Spaces.Key` (or `Comments.SpaceKey = Spaces.Key`). Note: the live `getInstructions` payload for this driver contains an example that references `[SpaceName]` on `Comments` — that example will fail; ignore it.
