@@ -1,12 +1,12 @@
 ---
 name: connect-ai-confluence
-description: Use when querying Confluence Cloud data through CData Connect AI. Covers the Confluence data model (spaces, pages, comments, attachments, users, plus the PageChildren/PageAncestors/PageComments/Labels/Tasks/ViewsAnalytics views), the space → page → refine query workflow, image/attachment retrieval via base64, and Confluence-specific conventions. Composes on top of the connect-ai-base skill.
+description: Use when querying Confluence Cloud / Server data through CData Connect AI. Covers the Confluence data model (spaces, pages, comments, attachments, users, plus the PageChildren/PageAncestors/PageComments/Labels/Tasks/ViewsAnalytics views), the space → page → refine query workflow, image/attachment retrieval via base64, and Confluence-specific conventions. Composes on top of the connect-ai-base skill.
 license: Apache-2.0
 metadata:
   author: CData Software
   version: "1.0"
   connector: Confluence
-  family: knowledge
+  family: collaboration
 ---
 
 # CData Connect AI — Confluence Skill
@@ -20,7 +20,7 @@ This skill provides Confluence-specific guidance for querying Confluence data th
 
 ## Precedence
 
-This skill replaces `getInstructions` for the Confluence driver. Do not call `getInstructions` for Confluence — the guidance it provides is already incorporated here, and the live `getInstructions` payload contains at least one example that references a non-existent column (`SpaceName` on `Comments`). Proceed directly to schema discovery (`getTables` / `getColumns`) after identifying the Confluence connection via `getCatalogs`.
+This skill replaces `getInstructions` for the Confluence driver. Do not call `getInstructions` for Confluence — the guidance it provides is already incorporated here. Proceed directly to schema discovery (`getTables` / `getColumns`) after identifying the Confluence connection via `getCatalogs`.
 
 ## Deployment Scope
 
@@ -424,7 +424,7 @@ Consuming the result: parse the `Results` JSON to pull content IDs and titles, t
 
 ### UploadAttachment — Not currently supported in cloud
 
-`UploadAttachment` accepts either `FileLocation` (server-side disk path, unavailable in cloud) or `FileStream` (Java `InputStream`, unable to pass through the MCP interface). There is no base64 string alternative for the upload path. Treat file uploads as a current limitation — do not invent parameter names the driver does not accept. Support for base64 string uploads is planned across CData drivers; check for updates if this capability is needed.
+`UploadAttachment` accepts either `FileLocation` (server-side disk path, unavailable in cloud) or `FileStream` (Java `InputStream`, unable to pass through the MCP interface). There is no base64 string alternative for the upload path. Treat file uploads as a current limitation — do not invent parameter names the driver does not accept. Support for file uploads via stored procedures is planned — check for updates if this capability is needed.
 
 ## Write Operations
 
