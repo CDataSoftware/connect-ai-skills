@@ -340,7 +340,7 @@ Then join back to `Pages` on `ContentId = Pages.Id` for titles and metadata.
 
 ### Views for a Specific Page
 
-`ViewsAnalytics` is a per-page lookup: it requires a `ContentId` filter in the WHERE clause, so it cannot be used to rank "most-viewed pages" across the tenant in a single query. To answer a "top N most-viewed" question, the caller has to iterate the candidate page IDs and call this view for each, then rank in the calling code.
+`ViewsAnalytics` is a per-page lookup, not a scannable table. Every query MUST include `WHERE [ContentId] = '<page-id>'` — unfiltered scans return a driver error.
 
 ```sql
 SELECT [ContentId], [NumberOfViews]
@@ -349,6 +349,8 @@ WHERE [ContentId] = '<page-id>'
 ```
 
 `NumberOfViews` is typed `VARCHAR` despite holding numeric values — cast it before comparing or sorting.
+
+To answer a "top N most-viewed" question, the caller has to iterate the candidate page IDs and call this view for each, then rank in the calling code.
 
 ### Attachments on a Page
 
@@ -402,8 +404,6 @@ Downloads an attachment. Pass `Encoding=BASE64` to retrieve the file content as 
 ```
 
 `Id` is the page (container) ID — fetch from `Attachments.ContainerId` or `Pages.Id`. `AttachmentId` is the attachment's own `Id` from the `Attachments` table (note: attachment IDs are prefixed `att`, e.g., `att507937155`). Both are required despite the parameter metadata showing `Id` as optional. Decode the base64 response to retrieve the original file content.
-
-**Empirical note (Confluence driver 25.0.9586):** A call against the generic Connect AI MCP using both `Id` and `AttachmentId` returned a JDBC error (`[JDBCStatementImpl] can't parse argument number: id=<value>`). This appears to be a parameter-binding issue at the driver level. The procedure may work correctly through the Confluence cai-toolkit surface or through a Connect AI client that submits parameters via a different binding path. If you hit the same error, fall back to constructing the download URL from `Attachments.DownloadLink` and authenticating against Confluence directly outside Connect AI.
 
 ### Search
 
