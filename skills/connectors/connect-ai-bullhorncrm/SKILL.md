@@ -69,9 +69,9 @@ Bullhorn's data model centers on the recruiting lifecycle:
 
 ### History (Edit) Tables
 
-For auditing field-level changes:
+For auditing field-level changes. Table names vary by tenant and driver version — confirm with `getTables` before querying:
 
-- **CandidateEditHistory**
+- **CandidateHistory** (may also appear as **CandidateEditHistory**)
 - **JobOrderEditHistory**
 - **PlacementEditHistory**
 - **ClientCorporationEditHistory**
@@ -344,13 +344,14 @@ Write access is controlled by **two layers**: the Connect AI connection's readon
 
 ## Bullhorn-Specific Conventions
 
+- **Boolean columns require literal `true`/`false`, not `1`/`0`.** The BullhornCRM driver rejects `1`/`0` on boolean columns (`IsDeleted`, `[Open/Closed]`, etc.) with `"Cannot decipher where clause as Boolean."` Use `WHERE [IsDeleted] = false`, `WHERE [Open/Closed] = true`. This applies to both SELECT filters and UPDATE SET clauses.
 - **FK column casing is mixed, not uniform.** Most FK columns use a lowercase `id` suffix (`Candidateid`, `Jobid`, `Companyid`, `ClientCompanyid`, `Ownerid`, `Contactid`, `Reportstoid`, `AddedByid`, `Categoryid`, `ParentCompanyid`), but several use uppercase `ID`: `BranchID`, `MasterUserID`, `ClientContactID`. `ExternalID` is an external/legacy reference, not a true FK. Always confirm casing with `getColumns` before joining — Bullhorn does not have a single consistent rule.
 - **Primary keys are always uppercase `ID`.** Only FK columns vary; the table's own primary key is consistently `ID`.
 - **Column names commonly contain special characters.** Slashes (`Open/Closed`, `Culture/Perks`), hashes (`#ofOpenings`), percent signs (`Mark-up%`, `Tax%`, `PlacementFee(%)`), parentheses (`Reportingto(contact)id`, `WillRelocate?`), question marks. `[]` quoting is **required**, not stylistic. Plain identifiers will fail to parse on many columns.
 - **`JobOrder.Status` and `JobOrder.[Open/Closed]` are distinct fields.** `Status` is a `VARCHAR` picklist (Open / Closed / Accepting Candidates / etc.); `[Open/Closed]` is a separate `BOOLEAN`. They don't necessarily move together in legacy data — check both for "is this job open?" questions, and confirm which one the user means.
 - **Status fields are string picklists, not numeric codes.** Filter with literal strings (`'Active'`, `'Open'`, `'Submitted'`). Picklist values differ by Bullhorn configuration; confirm with `SELECT DISTINCT [Status] FROM <table>`.
 - **`IsDeleted` is present on most transactional tables but NOT on ClientCorporation.** Candidate, ClientContact, JobOrder, JobSubmission, and Placement all expose `IsDeleted` and should be filtered to `false` for active queries. ClientCorporation does not have this column.
-- **History tables are append-only and very large.** `CandidateEditHistory`, `JobOrderEditHistory`, `PlacementEditHistory`, `ClientCorporationEditHistory` track every field change. Always filter on entity ID and a date range.
+- **History tables are append-only and very large.** `CandidateHistory` (or `CandidateEditHistory` — name varies by tenant; confirm via `getTables`), `JobOrderEditHistory`, `PlacementEditHistory`, `ClientCorporationEditHistory` track every field change. Always filter on entity ID and a date range.
 - **Custom fields are pervasive and use mixed casing.** Bullhorn tenants are heavily customized — every entity has many `customText`, `customInt`, `customFloat`, `customDate`, `customTextBlock` slots. Casing of the first letter varies within the same table (e.g., `customDate1` vs `CustomDate10`); always confirm exact names via `getColumns`. Encrypted custom fields (`CustomEncryptedText1` through `CustomEncryptedText10`) exist on Candidate and Placement for PII data.
 - **`Note` table is sparse without Bullhorn Automation.** Email content is not in `Note` by default — only present when the tenant uses Bullhorn Automation to ingest emails.
 - **Permission errors return HTTP 403 with "No read rights".** If a query against an entire entity returns 403 / "No read rights", the API user lacks read scope for that object; route the user to their Bullhorn administrator. If only specific fields return errors (e.g., "No read rights. Shift" on JobOrder), drop those fields from the SELECT and re-run.
