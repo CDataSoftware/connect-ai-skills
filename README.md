@@ -42,15 +42,16 @@ Additional connector-family skills (`connect-ai-crm`, `connect-ai-erp`, `connect
 
 ## Contributing
 
-Each skill lives in its own folder under [`skills/`](skills/) and consists of a single `SKILL.md` file with YAML frontmatter. The folder name is the skill's installable name (e.g. `--skill connect-ai-base` maps to [`skills/connect-ai-base/`](skills/connect-ai-base/)).
+Each skill lives in its own folder under [`skills/`](skills/) with a `SKILL.md` file (YAML frontmatter plus the skill body) at its root. The folder name is the skill's installable name (e.g. `--skill connect-ai-base` maps to [`skills/connect-ai-base/`](skills/connect-ai-base/)).
+
+A skill may optionally add a `references/` subdirectory for supporting files that `SKILL.md` links to and loads on demand. This keeps `SKILL.md` itself high-level while deeper material lives alongside it — for example, multi-schema Connectors will contain references for each supported schema.
 
 To add a new skill:
 
 1. Create a new folder under `skills/` named after the skill (e.g. `skills/connect-ai-crm/`).
 2. Add a `SKILL.md` file with the required frontmatter (`name`, `description`, `license`, `metadata`). Use [`skills/connect-ai-base/SKILL.md`](skills/connect-ai-base/SKILL.md) as the reference for frontmatter fields and section conventions.
-3. Add a row for the new skill to the **Available skills** table above.
-
-Connector-family skills (e.g. `connect-ai-crm`, `connect-ai-erp`) and connector-specific skills (e.g. `connect-ai-salesforce`, `connect-ai-jira`) follow the same flat layout — there is no plugin manifest or marketplace registration step.
+3. Optionally add a `references/` subdirectory for supporting files the skill loads on demand, and link to them from `SKILL.md`.
+4. Add a row for the new skill to the **Available skills** table above.
 
 ## License
 
