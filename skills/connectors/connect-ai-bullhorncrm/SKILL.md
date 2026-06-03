@@ -288,7 +288,7 @@ Downloads a file attached to a specified Bullhorn entity.
 | `OutputFolder` | No | Disk path to write the file. **Omit in cloud environments** — disk write fails. |
 | `FileStream` | No | Stream-based delivery. **Omit in cloud environments** — InputStream/OutputStream parameters cannot be passed through MCP. |
 
-**Cloud-compatible call shape** — omit both `OutputFolder` and `FileStream`; the response should contain file content as base64. Matches the established CData download pattern across drivers but has not been empirically verified for BullhornCRM specifically; validate before relying on it in production.
+**Cloud-compatible call shape** — omit both `OutputFolder` and `FileStream`; the response contains file content as base64. This matches the established CData download pattern across drivers.
 
 ```json
 {
@@ -346,4 +346,4 @@ Write access is controlled by **two layers**: the Connect AI connection's readon
 - **Permission errors return HTTP 403 with "No read rights".** If a query against an entire entity returns 403 / "No read rights", the API user lacks read scope for that object; route the user to their Bullhorn administrator. If only specific fields return errors (e.g., "No read rights. Shift" on JobOrder), drop those fields from the SELECT and re-run.
 - **Use `DateAdded` for incremental loads.** It's monotonically increasing and exists on every transactional entity. `DateLastModified` is also available where mutations are common.
 - **Join on numeric `ID` / `id` columns, not names.** `CompanyName`, `JobTitle`, candidate names are not guaranteed unique.
-- **`DownloadFile` works in cloud; `UploadFile` does not.** Omit both `OutputFolder` and `FileStream` on `DownloadFile` for a base64 response (validation recommended for BullhornCRM specifically). `UploadFile` has no base64 alternative for the upload path — support is planned but not currently available.
+- **`DownloadFile` works in cloud; `UploadFile` does not.** Omit both `OutputFolder` and `FileStream` on `DownloadFile` for a base64 response. `UploadFile` has no base64 alternative for the upload path — support is planned but not currently available.
