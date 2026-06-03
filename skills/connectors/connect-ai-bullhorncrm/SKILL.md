@@ -259,7 +259,7 @@ FROM [YourConnection].[BullhornCRM].[Placement] p
 JOIN [YourConnection].[BullhornCRM].[ClientCorporation] cc ON p.[Companyid] = cc.[ID]
 WHERE p.[StartDate] >= '2025-01-01'
 GROUP BY cc.[CompanyName]
-ORDER BY TotalBillRate DESC
+-- ORDER BY on aggregate aliases (TotalBillRate) is not supported by the driver; sort client-side
 ```
 
 ### Candidate pipeline by submission status
@@ -269,7 +269,7 @@ SELECT js.[Status], COUNT(*) AS CandidateCount
 FROM [YourConnection].[BullhornCRM].[JobSubmission] js
 WHERE js.[DateAdded] >= '2025-01-01'
 GROUP BY js.[Status]
-ORDER BY CandidateCount DESC
+-- ORDER BY on COUNT(*) / aggregate aliases is not supported by the driver; sort client-side
 ```
 
 ## Stored Procedures
@@ -333,6 +333,7 @@ Write access is controlled by **two layers**: the Connect AI connection's readon
 ## Bullhorn-Specific Conventions
 
 - **Boolean columns require literal `true`/`false`, not `1`/`0`.** The BullhornCRM driver rejects `1`/`0` on boolean columns (`IsDeleted`, `[Open/Closed]`, etc.) with `"Cannot decipher where clause as Boolean."` Use `WHERE [IsDeleted] = false`, `WHERE [Open/Closed] = true`. This applies to both SELECT filters and UPDATE SET clauses.
+- **`ORDER BY` cannot reference aggregate functions or aggregate aliases.** The CData BullhornCRM driver rejects `ORDER BY COUNT(*) DESC`, `ORDER BY <aggregate_alias> DESC` (e.g., `ORDER BY TotalBillRate DESC` where `TotalBillRate` is a `SUM`), and ordinal references like `ORDER BY 2 DESC` — all surface as `"Invalid column name 'COUNT'/'SUM'/etc. for table '<TableName>'"`. `GROUP BY` with aggregate expressions in the `SELECT` clause works correctly; only the `ORDER BY` clause is affected. Workaround: drop the `ORDER BY` on aggregates and sort client-side, or `ORDER BY` a non-aggregate column already in the result set.
 - **FK column casing is mixed, not uniform.** Most FK columns use a lowercase `id` suffix (`Candidateid`, `Jobid`, `Companyid`, `ClientCompanyid`, `Ownerid`, `Contactid`, `Reportstoid`, `AddedByid`, `Categoryid`, `ParentCompanyid`), but several use uppercase `ID`: `BranchID`, `MasterUserID`, `ClientContactID`. `ExternalID` is an external/legacy reference, not a true FK. Always confirm casing with `getColumns` before joining — Bullhorn does not have a single consistent rule.
 - **Primary keys are always uppercase `ID`.** Only FK columns vary; the table's own primary key is consistently `ID`.
 - **Column names commonly contain special characters.** Slashes (`Open/Closed`, `Culture/Perks`), hashes (`#ofOpenings`), percent signs (`Mark-up%`, `Tax%`, `PlacementFee(%)`), parentheses (`Reportingto(contact)id`, `WillRelocate?`), question marks. `[]` quoting is **required**, not stylistic. Plain identifiers will fail to parse on many columns.
