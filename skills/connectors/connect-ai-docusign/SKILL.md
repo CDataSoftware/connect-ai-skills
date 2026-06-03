@@ -53,7 +53,7 @@ All DocuSign tables are read-only views. To create or modify data, use the store
 - **Documents** — Documents within envelopes or templates. **Requires `Type` + `Id` filters** in WHERE clause
 - **Recipients** — Signers, CC, and other recipient types. **Also requires `Type` + `Id` filters** when scoping to a specific envelope or template (same filter pattern as `Documents`)
 - **DocumentTabs** — Tab (signature/field) definitions within documents
-- **Folders** — Envelope folders for organization
+- **Folders** — Folder listing, **scoped by the `FolderType` connection property** (default: `envelope_folders`; other valid values: `template_folders`, `shared_template_folders`). The agent cannot detect which scope is active from inside Connect AI; if the user asks about folders that don't appear, the connection's `FolderType` may need to be changed or a different connection used.
 
 ### Envelope Status values
 
