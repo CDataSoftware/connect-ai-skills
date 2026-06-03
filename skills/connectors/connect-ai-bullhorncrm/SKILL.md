@@ -303,21 +303,9 @@ Downloads a file attached to a specified Bullhorn entity.
 }
 ```
 
-### UploadFile
+### UploadFile — Not currently supported in cloud
 
-Uploads a file and attaches it to a Bullhorn entity.
-
-| Parameter | Required | Notes |
-|---|---|---|
-| `EntityType` | Yes | The entity type to attach to |
-| `EntityId` | Yes | The entity ID |
-| `ExternalId` | Yes | External reference ID for the file |
-| `FileLocation` | No | Disk path. **Fails in cloud environments** — no disk access. |
-| `Content` | No | Described as input-stream content; typed `VARCHAR`. Cloud support via base64 string is **unconfirmed** for BullhornCRM. |
-| `FileName` | No | Required when `Content` is provided. |
-| `ContentType`, `Description`, `Type` | No | Metadata. |
-
-**Cloud status: currently requires validation.** Across CData drivers historically, upload procedures have been non-functional in cloud environments because they expect a Java `InputStream` rather than a base64 string. The driver may have been updated to accept base64 in `Content`, but this hasn't been verified for BullhornCRM. Do not document a working call pattern until tested on a live tenant.
+`UploadFile` accepts either `FileLocation` (server-side disk path, unavailable in cloud) or `Content` (Java `InputStream`, unable to pass through the MCP interface). There is no base64 string alternative for the upload path on the BullhornCRM driver. Treat file uploads as a current limitation — do not invent parameter names the driver does not accept. Support for file uploads via stored procedures is planned — check for updates if this capability is needed.
 
 ## Write Operations
 
@@ -357,4 +345,4 @@ Write access is controlled by **two layers**: the Connect AI connection's readon
 - **Permission errors return HTTP 403 with "No read rights".** If a query against an entire entity returns 403 / "No read rights", the API user lacks read scope for that object; route the user to their Bullhorn administrator. If only specific fields return errors (e.g., "No read rights. Shift" on JobOrder), drop those fields from the SELECT and re-run.
 - **Use `DateAdded` for incremental loads.** It's monotonically increasing and exists on every transactional entity. `DateLastModified` is also available where mutations are common.
 - **Join on numeric `ID` / `id` columns, not names.** `CompanyName`, `JobTitle`, candidate names are not guaranteed unique.
-- **File procedures need cloud-compat validation.** `DownloadFile` should work in cloud when `OutputFolder` and `FileStream` are both omitted (returns base64 in response per the established pattern); `UploadFile` is likely non-functional in cloud until base64 string input is confirmed working. Test before relying on either.
+- **`DownloadFile` works in cloud; `UploadFile` does not.** Omit both `OutputFolder` and `FileStream` on `DownloadFile` for a base64 response (validation recommended for BullhornCRM specifically). `UploadFile` has no base64 alternative for the upload path — support is planned but not currently available.
