@@ -6,8 +6,6 @@
 
 ## Schema
 
-> ⚠️ **The SKILL.md connection-type table documents SOAP as returning a single `SOAP` schema. This is incorrect.** Validated against the live connection: `WorkdaySOAP_NY` exposes **37 functional-area schemas** with underscore-spaced names. There is no literal `SOAP` schema. Always run `getSchemas` on the live connection first.
-
 SOAP connections expose multiple functional-area schemas, named after Workday web-service domains. Schema names use **underscore-spaced** format — different from REST's PascalCase (e.g., `Human_Resources` not `HumanResources`, `Absence_Management` not `AbsenceManagement`).
 
 ```sql

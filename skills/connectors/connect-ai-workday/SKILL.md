@@ -31,7 +31,7 @@ Workday has four **connection types**, each set via the `ConnectionType` connect
 | **REST** | Workday REST API. The most common configuration. | Insert / update / limited delete | **Multiple** functional-area schemas (`Common`, `Procurement`, `Recruiting`, `Staffing`, `HelpCase`, `Payroll`, …) — varies by tenant |
 | **WQL** | Workday Query Language. Prism (`cds_`) + Core data sources. | Read-only | A single `WQL` schema |
 | **Reports** | Reports as a Service (RaaS). Requires `CustomReportURL`. | Read-only | A single `Reports` schema |
-| **SOAP** | Workday SOAP API (legacy). | (legacy) | **Multiple** functional-area schemas with underscore-spaced names (`Human_Resources`, `Staffing`, `Payroll`, …) — varies by tenant. No literal `SOAP` schema. |
+| **SOAP** | Workday SOAP API (legacy). | (legacy) | **Multiple** functional-area schemas with underscore-spaced names (`Human_Resources`, `Staffing`, `Payroll`, …) — varies by tenant. |
 
 ## Step 1 — Always start with `getSchemas`
 

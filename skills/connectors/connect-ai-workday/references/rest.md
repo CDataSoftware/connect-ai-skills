@@ -4,45 +4,37 @@
 >
 > Load this reference when the live connection's `getSchemas` returns **functional-area schemas** (e.g., `Common`, `Procurement`, `Recruiting`, `Staffing`, `HelpCase`) rather than a single `WQL` / `Reports` / `SOAP` schema. See the base [SKILL.md](../SKILL.md) for connection-type identification.
 
-## Schema partitioning (empirical)
+## Schema partitioning
 
-REST connections do **not** expose a single `REST` schema. Instead the driver partitions REST tables across **multiple functional-area schemas** named after Workday modules — e.g., `Common`, `Procurement`, `Recruiting`, `Staffing`, `HelpCase`, `Payroll`, `Connect`.
+REST connections do **not** expose a single `REST` schema. Instead the driver partitions REST tables across **multiple functional-area schemas** named after Workday modules — e.g., `Common`, `Procurement`, `Recruiting`, `Staffing`, `HelpCase`, `Payroll`, `Connect`. **Never assume a table's schema. Always run `getSchemas`, then `getTables` (with a `tableName` LIKE filter), on the live connection to discover where a table lives before querying it.**
 
-The CData docs don't formally describe how REST tables are organized into schemas. **The exact set varies by tenant** — a tenant without Workday Student won't see `Student*` schemas, one without Financials won't see `CoreAccounting` / `AccountsPayable` / `Revenue`, etc. Table-to-schema mappings are also driver-version-dependent. **Always run `getSchemas` and `getTables` on the live connection before writing queries.**
+A REST-typed connection may also expose a `Wql` schema alongside its functional-area schemas. It is a valid, queryable schema (not an artifact) and appears on both the generic MCP and toolkit surfaces. It does not replace a dedicated WQL-typed connection, which remains the right choice for full WQL work (see [references/wql.md](wql.md)).
 
-### Table locations observed during validation
+### Discovering table locations
 
-The mappings below were verified against one tenant. Use them as starting hints, not guarantees — confirm with `getTables` on the live connection.
+Because table-to-schema placement is tenant- and version-specific, treat discovery as mandatory rather than optional:
 
-| Table | Schema (observed) | Type |
-|---|---|---|
-| `Organizations` | `Common` | VIEW |
-| `Requisitions` | `Procurement` | TABLE |
-| `Cases` | `HelpCase` | TABLE |
-| `JobPostings` (+ `JobPostings*` children) | `Recruiting` | VIEW |
-| `JobProfiles` (+ `JobProfiles*` children) | `Staffing` | VIEW |
-| `JobFamilies`, `JobsWorkspace`, `JobChanges*` | `Staffing` | VIEW / TABLE |
-| `Workers*` views (`WorkersHistory`, `WorkersDirectReports`, `WorkersPaySlips`, etc.) | `Common` and `Staffing` | mostly VIEW |
-| `MessageTemplates`, `NotificationTypes` | `Connect` | TABLE / VIEW |
+1. `getSchemas` on the connection to see which functional-area schemas the tenant exposes.
+2. `getTables` with a `tableName` LIKE filter (e.g. `Requisition%`, `Job%`, `Worker%`) to find the table and the schema it lives in. A single logical entity may surface as several tables/views across more than one schema.
+3. `getColumns` on the resolved `[catalog].[schema].[table]` before referencing any column.
 
-**Tenant-dependent / not universally present:** older Workday connector docs reference bare `Workers`, `Jobs`, `companies`, `journals`, `journalLines` tables that did **not** appear on the validation tenant. Their availability depends on enabled modules (Financials/Accounting for the journal chain). Always confirm with `getTables`.
+Some entities documented in older Workday connector material (e.g. bare `Workers`, `Jobs`, `companies`, `journals`, `journalLines`) may not be present at all — their availability depends on which Workday modules the tenant has enabled. Confirm with `getTables`; do not assume a table exists.
 
 ### Three-part name examples
 
 ```sql
--- REST connection: tables live in functional schemas
-SELECT * FROM [WorkdayProd].[Common].[Organizations]
-SELECT * FROM [WorkdayProd].[Procurement].[Requisitions]
-SELECT * FROM [WorkdayProd].[HelpCase].[Cases]
-SELECT * FROM [WorkdayProd].[Recruiting].[JobPostings]
-SELECT * FROM [WorkdayProd].[Staffing].[JobProfiles]
+-- REST connection: tables live in functional schemas. The schema names below
+-- are illustrative placeholders — confirm the real schema with getTables.
+SELECT * FROM [YourConnection].[<schema>].[Organizations]
+SELECT * FROM [YourConnection].[<schema>].[Requisitions]
+SELECT * FROM [YourConnection].[<schema>].[Cases]
 ```
 
 ## Query Process
 
 The REST connection requires a Workday-specific workflow built around **prompt columns** and **value tables**. Most non-trivial REST queries cannot be issued directly — they require resolving one or more Workday-internal GUIDs first.
 
-1. **Locate the schema** for the target table on the live connection. Start with `getSchemas` to see which functional-area schemas the tenant exposes; then call `getTables` with a `tableName` LIKE filter to find the table. The table-locations table above is a starting hint, not a guarantee — actual locations vary by tenant.
+1. **Locate the schema** for the target table on the live connection (`getSchemas` → `getTables` with a LIKE filter). Do not assume placement.
 2. **Inspect with `getColumns`** on `[catalog].[schema].[table]` and find any `_Prompt` columns. Some are required, some optional. Required prompts typically scope to a date range or parent ID.
 3. **For each required `_Prompt`, resolve the GUID via the matching value table** (ends in `Values`, lives in the same schema). See [SKILL.md → Prompt columns & value tables](../SKILL.md#prompt-columns--value-tables).
 4. **Chains may be multi-level** — a value table may itself require a `_Prompt`. Resolve backward from the target.
@@ -100,139 +92,69 @@ Business-process modifications (job changes, org assignment changes, time off) u
 
 **Single value changes** modify one record directly. **Collection changes** modify multiple related records — use `CollectionToken` for iterative navigation. See [Stored Procedures](#stored-procedures) for the Begin/Submit pairing details.
 
-## Important Columns by Schema
+## Columns
 
-Non-obvious columns for the headline entities. Self-explanatory columns (`Id`, `Title`, `StartDate`, etc.) and timestamps are omitted — discover them with `getColumns`. Treat the `Workers` and `Jobs` lists as **illustrative**: bare top-level `Workers`/`Jobs` tables were not present on the validation tenant.
+Column names are tenant- and module-dependent and are **not** enumerated here — discover them with `getColumns` on the resolved table before writing a query. A few cross-cutting conventions hold widely enough to rely on:
 
-### Common
-
-#### Organizations
-
-- `OrganizationType_Prompt` — **required** classification filter
-- `Href` — direct URL to the org in Workday
-
-#### Workers *(tenant-dependent)*
-
-Bare top-level `Workers` was not present on the validation tenant; `Workers*` views appeared in `Common` and `Staffing`. Columns below are illustrative.
-
-- `WorkerId` — employee or contingent-worker ID (distinct from `Id`)
-- `WorkerType_Descriptor` — employee, contingent worker, etc.
-- `Person_Email`, `Person_Phone`
-- `PrimaryJob_BusinessTitle`, `PrimaryJob_JobProfile_Descriptor`, `PrimaryJob_Location_Descriptor`, `PrimaryJob_SupervisoryOrganization_Descriptor`
-- `IncludeTerminatedWorkers_Prompt` — set to `0` for active workers only
-
-### Procurement
-
-#### Requisitions
-
-- `Status_Descriptor` — open, approved, canceled, etc.
-- `Amount_Value`, `Amount_Currency`, `FormattedAmount`
-- `Requester_Descriptor`, `RequisitionType_Descriptor`, `Submitter_Descriptor`, `SourcingBuyer_Descriptor`
-- `HighPriority` — `1` if marked high priority
-- `Memo`, `InternalMemo`
-- **Prompts:** `FromDate_Prompt`, `ToDate_Prompt`, `Requester_Prompt`, `RequisitionType_Prompt`, `SubmittedBy_Prompt`, `SubmittedByPerson_Prompt`, `SubmittedBySupplier_Prompt`
-
-### Recruiting
-
-#### JobPostings
-
-- `JobDescription`
-- `Company_Descriptor`
-- `JobType_Descriptor`, `TimeType_Descriptor`, `RemoteType_Name`
-- `PrimaryLocation_Descriptor` (+ `_Country_Descriptor`, `_Region_Descriptor`)
-- `JobSite_Descriptor`, `SpotlightJob`
-- `Url` — external career-site URL
-
-### Staffing
-
-#### JobProfiles
-
-- `DefaultJobTitle`, `Summary`, `JobDescription`, `AdditionalJobDescription`
-- `JobCategory_Descriptor`, `JobLevel_Descriptor`, `ManagementLevel_Descriptor`
-- `CriticalJob`, `DifficultyToFill_Descriptor`
-- `Public`, `Inactive`, `WorkShiftRequired`
-
-#### Jobs *(tenant-dependent)*
-
-Bare top-level `Jobs` was not present on the validation tenant. Columns below are illustrative.
-
-- `BusinessTitle` — may differ from job profile title
-- `JobType_Descriptor` — full-time, part-time, contract
-- `Worker_Descriptor`, `Worker_Id` — current incumbent; **`Worker_Id` is the Workday WID (internal GUID), not the Employee ID** (e.g., `21001`). Always use this WID when passing a worker reference to stored procedures such as `BeginJobChange`.
-- `SupervisoryOrganization_Descriptor`
-- `NextPayPeriodStartDate`
-
-### HelpCase
-
-#### Cases
-
-- `CaseID` — human-readable case ID
-- `Status_Descriptor`, `Type_Name`
-- `About_Descriptor` — subject (person/entity involved)
-- `Assignee_Descriptor`, `By_Descriptor`, `ServiceTeam_Descriptor`
-- `DetailedMessage`, `Confidential`, `CaseLink`
-- **Prompts:** `MyCases_Prompt`, `OpenCases_Prompt`, `Status_Prompt`, `Substatus_Prompt`, `Team_Prompt`, `Flag_Prompt`, `Label_Prompt`, `Sort_Prompt` / `Desc_Prompt`
+- **`Id` vs. business identifiers.** A table's `Id` column is the Workday WID (internal GUID). Human-facing identifiers (employee IDs, requisition numbers, case IDs) are separate columns. When a stored procedure needs a worker/entity reference, it almost always wants the **WID**, not the human-facing ID — resolve the WID first (e.g. read it from the relevant table's `Id` / `*_Id` column).
+- **Reference fields surface as paired `<entity>_Descriptor` and `<entity>_Id`** (dotted in some surfaces, e.g. `Worker.Descriptor` / `Worker.Id`). Quote with `[]`.
+- **`_Prompt` columns** are inputs, not output data — see the prompt-column guidance above.
+- **Required classification/scope filters** (e.g. an `OrganizationType_Prompt` on an organizations table) return 0 rows when omitted. If a base table returns nothing, check `getColumns` for a required `_Prompt`.
 
 ## Common Query Patterns
 
-### Recent job postings (Recruiting)
+> Schema names in the examples below are illustrative placeholders. Resolve the real schema for each table with `getTables` on the live connection first.
+
+### Direct date-column filter (non-prompt)
+
+Some columns are plain filterable columns, not prompts. Don't append `_Prompt` to a column that isn't one — `getColumns` tells you which is which.
 
 ```sql
-SELECT [Id], [Title], [StartDate], [EndDate], [PrimaryLocation_Descriptor],
-       [JobType_Descriptor], [TimeType_Descriptor], [Company_Descriptor]
-FROM [YourConnection].[Recruiting].[JobPostings]
+SELECT [Id], [Title], [StartDate], [EndDate]
+FROM [YourConnection].[<schema>].[JobPostings]
 WHERE [StartDate] >= '2024-01-01'
 ORDER BY [StartDate] DESC
 ```
 
-### Requisitions within a date range (Procurement)
+### Date-range query via prompt columns
 
 ```sql
-SELECT [Id], [Descriptor], [RequisitionType_Descriptor],
-       [Requester_Descriptor], [Amount_Value], [Amount_Currency],
-       [RequisitionDate], [Status_Descriptor]
-FROM [YourConnection].[Procurement].[Requisitions]
+SELECT [Id], [Descriptor], [Status_Descriptor]
+FROM [YourConnection].[<schema>].[Requisitions]
 WHERE [FromDate_Prompt] = '2020-01-01'
   AND [ToDate_Prompt] = '2021-12-31'
-ORDER BY [RequisitionDate] DESC
+ORDER BY [Descriptor] DESC
 ```
 
-`FromDate_Prompt` / `ToDate_Prompt` accept literal dates in `yyyy-mm-dd` format (verified on the live driver).
+`FromDate_Prompt` / `ToDate_Prompt` accept literal dates in `yyyy-mm-dd` format.
 
-### Organizations of a specific type (Common)
-
-```sql
-SELECT [Id], [Descriptor], [Href]
-FROM [YourConnection].[Common].[Organizations]
-WHERE [OrganizationType_Prompt] = '<organization_type_GUID>'
-```
-
-`OrganizationType_Prompt` is required — resolve via the matching `*OrganizationType*Values` table.
-
-### Open cases assigned to me (HelpCase)
+### Entity requiring a value-table GUID lookup
 
 ```sql
-SELECT [Id], [CaseID], [Title], [CreationDate], [Status_Descriptor],
-       [Type_Name], [About_Descriptor], [Assignee_Descriptor]
-FROM [YourConnection].[HelpCase].[Cases]
-WHERE [MyCases_Prompt] = 1
-  AND [OpenCases_Prompt] = 1
-ORDER BY [CreationDate] DESC
+-- Step 1: resolve the GUID from the matching value table (filter by Descriptor)
+SELECT [Id], [Descriptor]
+FROM [YourConnection].[<schema>].[<Entity>TypeValues]
+WHERE [Descriptor] = '<human-readable value>'
+
+-- Step 2: feed the resolved GUID into the required _Prompt
+SELECT [Id], [Descriptor]
+FROM [YourConnection].[<schema>].[Organizations]
+WHERE [OrganizationType_Prompt] = '<GUID from step 1>'
 ```
 
 ### Multi-step prompt-column lookup chain *(illustrative)*
 
-> ⚠️ The `companies` / `journals` / `journalLines` tables below depend on the Workday Financials module and were **not present** on the validation tenant. Use this as a pattern for any REST table with multi-level `_Prompt` dependencies.
+> The `companies` / `journals` / `journalLines` chain below depends on the Workday Financials module and may not be present in every tenant. Use it as a pattern for any REST table with multi-level `_Prompt` dependencies, not as a guaranteed set of tables.
 
-To query `journalLines` (where available), three GUIDs must be resolved first: `company_Prompt`, `year_Prompt`, `journalEntryStatus_Prompt`. The chain:
+To query a deeply-prompted table, resolve each required GUID in dependency order, then issue the final query with all prompts supplied:
 
-1. `[CoreAccounting].[companies]` filtered by `Descriptor` → returns the company `Id` for `company_Prompt`.
-2. `[CoreAccounting].[journals]` filtered by `company_Prompt` + an accounting-date range → returns `fiscalYear_Id` (use for `year_Prompt`) and `journalStatus_Id` (use for `journalEntryStatus_Prompt`).
-3. `[CoreAccounting].[journalLines]` filtered by all three resolved prompts plus `entryMomentFrom_Prompt` / `entryMomentTo_Prompt`:
+1. Resolve the parent scope (e.g. a company `Id` from a companies table filtered by `Descriptor`).
+2. Resolve dependent prompts that themselves need the parent (e.g. fiscal-year / status GUIDs from a journals table filtered by the company prompt and a date range).
+3. Issue the target query with all resolved prompts plus any date-range prompts:
 
 ```sql
-SELECT [workdayId], [accountingDate], [lastFunctionallyUpdated]
-FROM [YourConnection].[CoreAccounting].[journalLines]
+SELECT [workdayId], [accountingDate]
+FROM [YourConnection].[<schema>].[journalLines]
 WHERE [company_Prompt] = '<from_step_1>'
   AND [year_Prompt] = '<from_step_2>'
   AND [journalEntryStatus_Prompt] = '<from_step_2>'
@@ -243,61 +165,53 @@ LIMIT 10
 
 ## Stored Procedures
 
-Procedures on the Workday REST connection share a flat global namespace. On the validation tenant, `getProcedures` returns the same complete procedure list regardless of which functional-area schema is passed, and `executeProcedure` routes calls to Workday based on procedure name alone — the schema parameter is required by the driver but does not partition the procedure namespace. This was verified across multiple schemas including ones with no logical relationship to the procedure being called.
+**Procedures share a flat global namespace; tables do not.** On the Workday REST driver, `getProcedures`, `getProcedureParameters`, and `executeProcedure` resolve a procedure by **name alone** — the schema parameter is required by the tool signature but is ignored for procedure resolution. Consequences:
 
-Practical implications:
-- You can call any business-process procedure under any valid schema (`Staffing`, `Procurement`, `Common`, etc.) and the lookup will succeed. The schema is required by the tool signature but functionally decorative.
-- Tables do not share this behavior — table schema membership is real and must be discovered with `getTables`. Only procedures are schema-promiscuous.
-- For readability, prefer the schema closest to the procedure's domain: `Staffing` for worker-lifecycle procedures (Begin/SubmitJobChange, WorkersRequestTimeOff, organization-assignment changes), `Procurement` for requisition procedures (RequisitionsCancel, RequisitionsClose), `Common` for cross-cutting procedures (SendMessage). This is convention, not enforcement.
+- `getProcedures` returns the same complete procedure list under every functional-area schema, so a given procedure appears under all of them. This is the flat namespace being enumerated, **not** duplication or a scoping defect. Use `getProcedures` for name discovery (e.g. a `procedureName` LIKE filter), not to infer which schema a procedure "lives" in.
+- You can call any business-process procedure under any valid schema and it will resolve. For readability, prefer the schema closest to the procedure's domain (e.g. `Staffing` for worker-lifecycle procedures, `Procurement` for requisition procedures, `Common` for cross-cutting ones). This is convention, not enforcement.
+- **Tables do not share this behavior** — table schema membership is real and must be discovered with `getTables`.
 
-Caveat: this flat-namespace behavior is empirically observed on one validation tenant. Whether it holds across all Workday tenants and driver versions has not been confirmed.
+> Provenance: the flat-namespace behavior is observed in testing and is consistent with how the driver resolves procedures, but it has not been confirmed across every Workday tenant and driver version. If a procedure unexpectedly fails to resolve, fall back to discovering it by name with `getProcedures`.
 
-Representative business-process procedures (call under any schema):
+Discover the available procedures with `getProcedures` (any valid schema works). Representative business-process procedures follow the `Begin*` / `Submit*` paired pattern:
 
-- `BeginJobChange` / `SubmitJobChange`
-- `BeginOrganizationAssignmentChange` / `SubmitOrganizationAssignmentChange`
-- `WorkersRequestTimeOff`
-- `Begin/SubmitHomeContactInformationChange`, `Begin/SubmitWorkContactInformationChange`
-- `WorkersRequestOneTimePayment`, `WorkersOrganizationAssignmentChanges`
-- `RequisitionsCancel`, `RequisitionsClose`
+- `Begin<ChangeName>` / `Submit<ChangeName>` (e.g. job changes, organization-assignment changes, contact-information changes)
+- worker-scoped action procedures (time-off requests, one-time payments, etc.)
+- requisition lifecycle procedures (cancel, close)
 
-Run `getProcedures` for the full list (any valid schema works).
+`Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., a job-change `Submit*` takes `JobChange_Id`, **not** `Id`). Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday). This naming convention is expected to generalize across `Submit*` procedures, though not every one has been individually verified.
 
-`Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., `SubmitJobChange` takes `JobChange_Id`, **not** `Id`). The naming convention likely generalizes to other `Submit*` procedures (`SubmitHire`, `SubmitTermination`, etc.), though only `SubmitJobChange` is empirically confirmed. Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday).
+### Cross-cutting messaging / action procedures
 
-### SendMessage (Common schema)
+Procedures such as a `SendMessage`-style notification procedure follow the flat-namespace behavior — reachable from any valid schema; use the most domain-appropriate one (e.g. `Common`) as the call site. Their object-reference inputs (notification type, recipients) are Workday GUIDs — resolve them via the appropriate value tables before calling.
 
-`SendMessage` follows the flat-namespace behavior described above — it is reachable from every valid schema. Use `Common` as the conventional call site (it matches existing skill posture and is the most domain-appropriate location for a cross-cutting messaging procedure):
+### Error code legend
 
-```json
-{
-  "schema": "Common",
-  "procedure": "SendMessage",
-  "parameters": {
-    "EmailDetail_Body": "This is a test message",
-    "EmailDetail_Subject": "Test Subject",
-    "NotificationType_Id": "<NotificationType_GUID>",
-    "Recipients_Contacts_Aggregate": "[{\"id\": \"<recipient_GUID>\"}]"
-  }
-}
-```
+`executeProcedure` and query failures surface error codes from distinct layers. Distinguishing them tells you whether to fix the call shape or look elsewhere:
 
-`NotificationType_Id` and recipient `id` values are Workday GUIDs — resolve via the appropriate value tables.
-
-### Error code legend (observed on validation tenant)
-
-`executeProcedure` failures surface error codes from four distinct layers. Stable prefixes (observed on one tenant; not confirmed as universal):
-
-| Code prefix | Layer | Trigger | Example message |
+| Code prefix | Layer | Trigger | What to do |
 |---|---|---|---|
-| `STMT RSB <name> is not a valid stored procedure` | CData driver (procedure resolution) | Procedure name doesn't exist | `STMT RSB <ThisIsNotARealProcedure> is not a valid stored procedure.` |
-| `STMT SQL [60003]` | CData driver (input validation) | Required input parameter missing or empty | `STMT SQL [60003] The input [Requisitions_Id] must have a value to execute the [RequisitionsCancel] procedure.` |
-| `STMT HTTP [40002] [S22] permission denied` | Workday API (authorization) | OAuth client lacks scope for the operation on this entity | `STMT HTTP [40002] [S22] permission denied.` |
-| `STMT HTTP [40006] [S21] not found: <X>` | Workday API (entity resolution) | GUID malformed, nonexistent, or resolves to wrong entity type for the endpoint | `STMT HTTP [40006] [S21] not found: 00000000000000000000000000000000.` |
+| `STMT RSB <name> is not a valid stored procedure` | CData driver (procedure resolution) | Procedure name doesn't exist | Fix the procedure name (discover via `getProcedures`). Call never reached Workday. |
+| `STMT SQL [60003] The input [X] must have a value...` | CData driver (input validation) | Required input parameter missing or empty | Supply the parameter. Call never reached Workday. |
+| `STMT HTTP [40002] [S22] permission denied` | Workday API (authorization) | The integration user lacks security access for the operation/domain | See permissions guidance below. **Not** a query-shape problem. |
+| `STMT HTTP [40006] [S21] not found: <X>` | Workday API (entity resolution) | GUID malformed, nonexistent, or wrong entity type for the endpoint | Fix the GUID or entity-type match. Call reached Workday. |
 
-Distinguish driver-layer errors from Workday-layer errors when debugging:
-- `STMT RSB` and `STMT SQL [60003]` mean the call never reached Workday — fix the procedure name or parameter set and retry.
-- `STMT HTTP [40002]` and `STMT HTTP [40006]` mean Workday received the call and rejected it — fix the GUID, entity-type match, or OAuth client scope, not the call shape.
+- `STMT RSB` and `STMT SQL [60003]` mean the call never left the driver — fix the procedure name or parameter set and retry.
+- `STMT HTTP [40002]` and `STMT HTTP [40006]` mean Workday received the call and rejected it — the fix is on the Workday side (GUID, entity-type, or security policy), not the call shape.
+
+### Permission errors (`40002`) — diagnosing scope
+
+`HTTP [40002] permission denied` means the connection's integration system user (ISU) doesn't have the Workday security access the operation requires. Two distinct cases, with different fixes:
+
+- **Operation-level gap.** A specific procedure or write fails with `40002` while reads on the same schema succeed. The ISU's security group lacks the domain permission for that particular business process or the connection is read-only on the CData side.
+- **Module/domain-wide gap.** *Both* reads (`SELECT`) **and** procedure calls fail with `40002` across an entire schema family (e.g. every `Student*` schema, or all of Financials). This points to the ISU's security group missing the whole functional domain's access, not a per-call issue.
+
+How to tell them apart and respond:
+
+1. Run a minimal read against a table in the affected schema (`SELECT * FROM [conn].[schema].[table] LIMIT 1`). If that also returns `40002`, the gap is domain-wide — the ISU simply cannot see that module.
+2. **Do not** try to fix a `40002` by changing the query, adding/removing parameters, or supplying different GUIDs — none of those grant access. Adding valid inputs to a call that's blocked on authorization will return the same `40002`.
+3. The fix is a **Workday tenant administration change**: grant the integration system user's security group the relevant domain security policy (and, for writes, the business-process security policy), then activate pending security policy changes. This is outside CData/Connect AI — surface it to a Workday security administrator rather than continuing to retry.
+4. Also confirm the Connect AI connection isn't configured read-only when a **write** specifically fails — see [Write Operations](#write-operations) for the two layers that gate writes.
 
 ## Write Operations
 
@@ -307,14 +221,16 @@ REST connections support writes where the underlying Workday API allows it; **WQ
 - **Update** — must include `Id`. Child/owned entities require their compound keys. Prompt columns may be required depending on entity type.
 - **Delete** — many entities cannot be deleted directly; use the change-resource pattern (Begin/Submit) instead.
 
-**Two layers control write access:** the Workday business object's own rules (Workday side), and the Connect AI connection's read-only setting (CData side). When a write fails with a permissions error, check both.
+**Two layers control write access:** the Workday business object's own security rules (Workday side), and the Connect AI connection's read-only setting (CData side). When a write fails with a permissions error, check both — a `40002` here may mean either the ISU lacks the business-process security policy, or the connection is configured read-only.
 
 ## REST-Specific Conventions
 
 > Prompt-column and value-table conventions (never guess GUIDs, literal date/boolean prompts, multi-level lookup chains, NULL `CollectionToken` = leaf) are shared across connection types and live in [SKILL.md → Prompt columns & value tables](../SKILL.md#prompt-columns--value-tables). The conventions below are REST-only.
 
-- **Prompt inheritance follows entity category** (Base / Child / Owned / Owned child) — see [Prompt Columns (REST entity categories)](#prompt-columns-rest-entity-categories). Value tables for REST prompts live in the same functional-area schema as the target.
+- **Discover schema placement; never assume it.** REST has no literal `REST` schema — tables live in functional-area schemas that vary by tenant and driver version. Resolve with `getSchemas` → `getTables` before querying.
+- **Prompt inheritance follows entity category** (Base / Child / Owned / Owned child). Value tables for REST prompts live in the same functional-area schema as the target.
 - **`Id` push-down depends on entity category** (base = fast; child = client-side after full fetch). For child entities, filter on the parent `Id` instead.
 - **Change resources use a strict Begin/Submit pair** — neither stands alone.
-- **Procedures share a flat namespace; tables don't.** On the Workday REST driver (observed on the validation tenant), `getProcedures`, `getProcedureParameters`, and `executeProcedure` all ignore the schema parameter for procedure resolution — any valid schema name works. Tables behave normally and require correct schema membership. Don't trust `getProcedures` schema-filtered output to indicate where a procedure "lives"; use it for procedure discovery (by name pattern) rather than schema-membership inference.
-- **Driver `Required=false` on procedure parameters is often misleading.** Both the CData driver and Workday business-process rules may reject calls that omit parameters reported as `Required=false`. The CData driver surfaces these as `STMT SQL [60003] The input [X] must have a value...` errors before the call leaves the driver; Workday business-process rules surface as `STMT HTTP [40006] [S21] not found: ...` or `STMT HTTP [40002] [S22] permission denied`. In either case the operative rule is the same: treat any parameter named in a procedure's primary semantics — the ID of the entity being acted on, reason codes for state changes, comments for business-process steps — as functionally required regardless of metadata. Observed cases: `RequisitionsCancel` (`Comments`, `ReasonCode_Id`), `BeginJobChange` (`Worker_Id`, `Date`, `Reason_Id`), `SubmitJobChange`.
+- **Procedures share a flat namespace; tables don't.** `getProcedures` / `getProcedureParameters` / `executeProcedure` resolve procedures by name and ignore the schema parameter; tables require correct schema membership. Use `getProcedures` for name discovery, not schema-membership inference.
+- **Driver `Required=false` on procedure parameters is often misleading.** Both the CData driver and Workday business-process rules may reject calls that omit parameters reported as `Required=false`. The driver surfaces these as `STMT SQL [60003] The input [X] must have a value...` before the call leaves the driver; Workday business-process rules surface as `STMT HTTP [40006]` or `STMT HTTP [40002]`. Treat any parameter named in a procedure's primary semantics — the ID of the entity being acted on, reason codes for state changes, comments for business-process steps — as functionally required regardless of metadata.
+- **A correctly-formed query that returns 0 rows is usually data availability, not a malformed query.** If `getColumns` confirms your columns and all required `_Prompt`s are supplied with valid GUIDs/dates, an empty result typically means no matching records (e.g. nothing in the date window). Don't keep "fixing" a query that's already correct — verify the data exists.
