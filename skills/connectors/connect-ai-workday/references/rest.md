@@ -158,7 +158,7 @@ Bare top-level `Jobs` was not present on the validation tenant. Columns below ar
 
 - `BusinessTitle` — may differ from job profile title
 - `JobType_Descriptor` — full-time, part-time, contract
-- `Worker_Descriptor`, `Worker_Id` — current incumbent
+- `Worker_Descriptor`, `Worker_Id` — current incumbent; **`Worker_Id` is the Workday WID (internal GUID), not the Employee ID** (e.g., `21001`). Always use this WID when passing a worker reference to stored procedures such as `BeginJobChange`.
 - `SupervisoryOrganization_Descriptor`
 - `NextPayPeriodStartDate`
 

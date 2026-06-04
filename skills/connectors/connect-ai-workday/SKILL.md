@@ -31,7 +31,7 @@ Workday has four **connection types**, each set via the `ConnectionType` connect
 | **REST** | Workday REST API. The most common configuration. | Insert / update / limited delete | **Multiple** functional-area schemas (`Common`, `Procurement`, `Recruiting`, `Staffing`, `HelpCase`, `Payroll`, …) — varies by tenant |
 | **WQL** | Workday Query Language. Prism (`cds_`) + Core data sources. | Read-only | A single `WQL` schema |
 | **Reports** | Reports as a Service (RaaS). Requires `CustomReportURL`. | Read-only | A single `Reports` schema |
-| **SOAP** | Workday SOAP API (legacy). | (legacy) | A single `SOAP` schema |
+| **SOAP** | Workday SOAP API (legacy). | (legacy) | **Multiple** functional-area schemas with underscore-spaced names (`Human_Resources`, `Staffing`, `Payroll`, …) — varies by tenant. No literal `SOAP` schema. |
 
 ## Step 1 — Always start with `getSchemas`
 
@@ -39,8 +39,8 @@ Run `getSchemas` on the Workday connection before anything else. The result tell
 
 - Returns **`WQL`** only → WQL connection.
 - Returns **`Reports`** only → Reports connection.
-- Returns **`SOAP`** only → SOAP connection.
-- Returns **multiple functional-area schemas** (`Common`, `Procurement`, `Staffing`, etc.) → REST connection. REST does **not** expose a single `REST` schema; the exact set of functional schemas varies by tenant and driver version.
+- Returns **multiple underscore-spaced schemas** (`Human_Resources`, `Staffing`, `Payroll`, etc.) → SOAP connection. SOAP does **not** expose a single `SOAP` schema; it uses underscore-spaced functional-area names.
+- Returns **multiple PascalCase functional-area schemas** (`Common`, `Procurement`, `Staffing`, etc.) → REST connection. REST does **not** expose a single `REST` schema; the exact set of functional schemas varies by tenant and driver version.
 
 ## Step 2 — Load the matching connection-type reference
 
