@@ -105,7 +105,7 @@ Rich Airtable field types expand into multiple columns:
 ### Comments (per base)
 - `Id` — comment identifier (key, read-only)
 - `RecordId` — record the comment belongs to (key, writable — set on insert)
-- `TableName` — table containing the record (writable — set on insert)
+- `TableName` — table containing the record (writable — set on insert). **Required filter on SELECT queries** — querying Comments without `WHERE [TableName] = '...'` returns error `A value is required for ... [TableName]`. Always include a TableName filter when reading comments; optionally also filter by `RecordId` for a specific record.
 - `Text` — comment body, may include user mentions (writable)
 - `ParentCommentId` — parent comment for threaded replies (writable)
 - `CreatedTime` / `LastUpdatedTime` — timestamps (read-only)
@@ -270,5 +270,7 @@ If writes are blocked, check (1) the Connect AI connection's readonly setting (C
 - **`Internal_Id` is the row primary key.** Use it (not a user field) in UPDATE/DELETE WHERE clauses; it is the Airtable record id.
 - **`CreatedTime` is a system column** present on record tables — use it for date filtering. Prefer explicit date literals (`'2025-01-01'`) over `DATEADD()` for performance.
 - **Schemas are per base.** Switching bases means switching the schema segment; there is no cross-base table. Use `[Information].[Tables]` to locate a table's `BaseName` first.
+- **`Comments` requires a `TableName` filter on reads.** Querying `[BaseName].[Comments]` without `WHERE [TableName] = '...'` fails with a required-value error. If you hit this error, retry with a `[TableName]` filter set to the target table name. Optionally add `[RecordId]` to scope to a single record. Writes (INSERT) also require `TableName` and `RecordId` as column values.
 - **Attachment reads work in cloud; file writes do not.** `DownloadAttachment` returns the file as base64 in a `FileData` column when `LocalPath`/`FileStream` are omitted (or read `[Table_Attachments].[URL]` for a direct link). `UploadAttachment` and `SyncCSV` require server-side disk access and do not work in cloud — even via their `FileData` base64 parameter. Treat file upload/sync as a current limitation.
 - **`DisplayObjectIds` connection property** controls whether tables/fields are referenced by display name or by Airtable id. If name-based references are not resolving, the connection may be configured for ids (and vice versa).
+- **Single-select and multi-select fields reject unknown values.** Airtable validates that INSERT/UPDATE values for select-type fields match a pre-configured option exactly. If you get an `INVALID_MULTIPLE_CHOICE_OPTIONS` or `INVALID_SELECT_OPTION` error, query the table for `SELECT DISTINCT [FieldName]` to discover the valid options, then retry with an exact match. Do not guess option names — they are tenant-configured and may not match common labels (e.g. the valid status might be `Monitoring/Complete` rather than `Complete`).
