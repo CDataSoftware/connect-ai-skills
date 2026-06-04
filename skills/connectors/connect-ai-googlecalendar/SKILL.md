@@ -52,7 +52,7 @@ Google Calendar data is organized around events that belong to calendars. Most r
 2. **Identify the calendar** — default to `CalendarId = 'primary'`. To list calendars the account can see, query `Calendars` (`[Id]`, `[Summary]`, `[AccessRole]`).
 3. **Query events from `AllCalendars`** — always include a date filter on `[StartDateTime]` (large calendars time out otherwise) and a `[CalendarId]` filter for performance.
 4. **Refine** — filter by `[Status]`, attendees, all-day vs. timed, recurrence, etc.
-5. **Act** — create events with `ImportEvent` or `QuickAddEvent`, check free/busy with `GetAvailability`, move events with `MoveEvent`, or modify/remove events with UPDATE/DELETE on `AllCalendars`.
+5. **Act** — create events with `ImportEvent` or `QuickAddEvent`, check free/busy with `GetAvailability`, move events with `MoveEvent`, or modify events with UPDATE on `AllCalendars`.
 
 ## Data Model
 
@@ -87,7 +87,7 @@ Google Calendar data is organized around events that belong to calendars. Most r
 - `StartDate` / `EndDate` — DATE values used **instead of** the DateTime columns for all-day events
 - `AllDayEvent` — BOOLEAN, read-only — true when the event is all-day
 - `Status` — `confirmed`, `tentative`, or `cancelled`
-- `SendNotification` — BOOLEAN, writable — set to true on INSERT/UPDATE/DELETE to notify attendees
+- `SendNotification` — BOOLEAN, writable — set to true on INSERT/UPDATE to notify attendees
 - `AttendeesEmails` — Comma-separated attendee emails
 - `AttendeesDisplayNames` — Comma-separated attendee names
 - `AttendeesResponseStatus` — Comma-separated responses (`accepted`, `declined`, `needsAction`, `tentative`)
@@ -265,6 +265,8 @@ JSON format for `executeProcedure`:
 - `@Recurrences` is a pipe-separated list of RRULE/EXRULE/RDATE/EXDATE lines (DTSTART/DTEND are not allowed). For a simple repeat, a single `RRULE:...` string is sufficient — see Recurrence rules below.
 - Attachments are added by reference via `@AttachmentsFileUrls` (pipe-separated URLs) with `@SupportsAttachments = true` — there is no file-upload parameter (see Conventions).
 
+> **`ImportEvent` has no notification parameter.** `@SendNotification` is a column on `AllCalendars` (used with INSERT/UPDATE), and `@SendUpdates` is a parameter on `QuickAddEvent` and `MoveEvent` — neither applies to `ImportEvent`. Attendee notifications for imported events are controlled by the calendar's default notification settings.
+
 ### GetAvailability
 
 Returns free/busy windows for one or more calendars. All three parameters are required.
@@ -328,7 +330,7 @@ WHERE [CalendarId] = 'primary'
 
 ## Write Operations
 
-The Google Calendar driver supports INSERT, UPDATE, and DELETE on `AllCalendars` (and the per-calendar tables) where the connection and the authenticated Google user's `AccessRole` allow it.
+The Google Calendar driver supports INSERT and UPDATE on `AllCalendars` (and the per-calendar tables) where the connection and the authenticated Google user's `AccessRole` allow it.
 
 ### Update an event
 
@@ -354,22 +356,7 @@ WHERE [Id] = '<event-id>'
   AND [CalendarId] = 'primary'
 ```
 
-### Delete events
-
-```sql
--- Single event
-DELETE FROM [YourConnection].[GoogleCalendar].[AllCalendars]
-WHERE [Id] = '<event-id>'
-  AND [CalendarId] = 'primary'
-
--- A recurring event and all its future instances
-DELETE FROM [YourConnection].[GoogleCalendar].[AllCalendars]
-WHERE [RecurringEventId] = '<recurring-event-id>'
-  AND [CalendarId] = 'primary'
-  AND [StartDateTime] >= GETDATE()
-```
-
-Prefer UPDATE over delete-and-recreate so event history and attendee responses are preserved. To *create* events, prefer the `ImportEvent` / `QuickAddEvent` procedures over raw INSERT — they expose attendees, reminders, recurrence, and conference data cleanly.
+Prefer in-place UPDATE so event history and attendee responses are preserved. To *create* events, prefer the `ImportEvent` / `QuickAddEvent` procedures over raw INSERT — they expose attendees, reminders, recurrence, and conference data cleanly.
 
 If write operations are blocked, the Connect AI connection may be in readonly mode (CData side) **or** the authenticated Google user may lack `writer`/`owner` `AccessRole` on the target calendar (check `Calendars.[AccessRole]`). Guide the user to enable write access on the connection and confirm their calendar permissions.
 
@@ -395,7 +382,7 @@ For multiple rules/exceptions, separate lines with `|` (pipe). Do not include `D
 - **`ImportEvent` requires a unique `@ICalUID`.** Reusing a UID causes the request to be treated as the same event. Generate a fresh UID per event.
 - **Attendees and reminders are JSON on procedures but comma-separated on the table.** `ImportEvent` takes `@Attendees` / `@ReminderOverrides` as JSON arrays; the `AllCalendars` table exposes the same data as comma-separated `AttendeesEmails` / `ReminderOverrideMethods` columns. Search attendees with `LIKE` on the comma-separated column.
 - **Attachments are added by URL reference, not uploaded.** `ImportEvent` accepts `@AttachmentsFileUrls` (pipe-separated URLs, typically Google Drive links) with `@SupportsAttachments = true`. There is no base64/file-upload parameter, so the usual cloud file-upload limitation does not apply here — attachments must already exist at a URL.
-- **`SendNotification` controls attendee emails on write.** Set to 1 to notify attendees of an insert/update/delete, 0 for a silent change.
+- **`SendNotification` controls attendee emails on write.** Set to 1 to notify attendees of an insert/update, 0 for a silent change.
 - **`Transparency` controls busy/free.** `opaque` (default) blocks time and shows as busy; `transparent` does not.
 - **Conference/Meet links are read-only.** Read `HangoutLink` for the Meet link or `ConferenceEntryPointsAggregate` for other platforms; create conference data via the `ImportEvent` `ConferenceData*` parameters.
 - **`DATEPART(weekday, ...)` numbering is Sun=1 … Sat=7** (so Friday = 6).
