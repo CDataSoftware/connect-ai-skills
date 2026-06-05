@@ -42,7 +42,7 @@ npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill c
 | [`connect-ai-googlecalendar`](skills/connectors/connect-ai-googlecalendar/SKILL.md) | Collaboration | Google Calendar data model (events, calendars, ACLs, attachments), the per-calendar table pattern, availability queries, and event create/move procedures. |
 | [`connect-ai-googledrive`](skills/connectors/connect-ai-googledrive/SKILL.md) | Files | Google Drive data model (files, folders, drives, permissions) and procedures for uploading and downloading file content. |
 
-Additional connector-specific skills will be listed here as they ship.
+Additional skills will be listed here as they ship.
 
 ## Prerequisites
 
