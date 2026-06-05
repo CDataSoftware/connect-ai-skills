@@ -104,8 +104,6 @@ These are filtered views over the same underlying file objects:
 - `Can*` family (e.g. `CanEdit`, `CanShare`, `CanDownload`, `CanDelete`) — the current user's capabilities on the item
 - `Query` — a pseudo-column that accepts a raw Google Drive SDK query string and **overrides** the WHERE clause (advanced)
 
-> The source instructions list an `Encoding` column on `Files`; it is not a queryable column in the live schema — it's an upload input. Upload file content via the `UploadFile` procedure (or its `FileData`/`Encoding` inputs), not by selecting an `Encoding` column.
-
 ### Folders (view)
 - `Id`, `Name`, `Description`, `ParentIds`
 - `CreatedTime`, `ModifiedTime`
