@@ -17,41 +17,37 @@ npx skills add CDataSoftware/connect-ai-skills
 Install a specific skill by name (the folder name under [`skills/`](skills/)). Pair it with `connect-ai-base`:
 
 ```
-npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-salesforce
 ```
 
 Pass `--skill` multiple times to install several skills in one command:
 
 ```
-npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-crm --skill connect-ai-salesforce
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-salesforce --skill connect-ai-jira
 ```
 
 ### Available skills
 
-| Skill | Description |
-|---|---|
-| [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, and common error recovery. Load this first — all other skills compose on top of it. |
+| Skill | Family | Description |
+|---|---|---|
+| [`connect-ai-base`](skills/connect-ai/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all other skills compose on top of it. |
+| [`connect-ai-salesforce`](skills/connectors/connect-ai-salesforce/SKILL.md) | CRM | Salesforce data model, query patterns, stored procedures, and Salesforce-specific conventions. |
+| [`connect-ai-bullhorncrm`](skills/connectors/connect-ai-bullhorncrm/SKILL.md) | CRM | Bullhorn CRM recruiting data model (Candidates, ClientCorporations, JobOrders, JobSubmissions, Placements), file-attachment procedures, edit-history tables, and Bullhorn conventions. |
+| [`connect-ai-workday`](skills/connectors/connect-ai-workday/SKILL.md) | HCM | Workday's multi-connection-type model (REST/WQL/Reports/SOAP), per-connection-type references, prompt-column lookups, value tables, and change-resource procedures. |
+| [`connect-ai-quickbooksonline`](skills/connectors/connect-ai-quickbooksonline/SKILL.md) | Accounting | QuickBooks Online data model (GL, AP, AR, items, banking), line-item patterns, LineAggregate XML for inserts, and report objects. |
+| [`connect-ai-jira`](skills/connectors/connect-ai-jira/SKILL.md) | Ticketing | Jira data model, issue hierarchy, query patterns, stored procedures, and Jira-specific conventions. |
+| [`connect-ai-confluence`](skills/connectors/connect-ai-confluence/SKILL.md) | Collaboration | Confluence data model (spaces, pages, comments, attachments, users, and analytics/hierarchy views), the space → page → refine workflow, and base64 image/attachment retrieval. |
+| [`connect-ai-airtable`](skills/connectors/connect-ai-airtable/SKILL.md) | Collaboration | Airtable's multi-schema model (Information metadata plus one schema per base), per-base table/view anatomy, attachment/collaborator fields, comments, and stored procedures. |
+| [`connect-ai-docusign`](skills/connectors/connect-ai-docusign/SKILL.md) | Collaboration | DocuSign data model (Envelopes, Templates, Documents, Recipients), envelope lifecycle queries, and procedures for creating/downloading documents. |
+| [`connect-ai-googlecalendar`](skills/connectors/connect-ai-googlecalendar/SKILL.md) | Collaboration | Google Calendar data model (events, calendars, ACLs, attachments), the per-calendar table pattern, availability queries, and event create/move procedures. |
+| [`connect-ai-googledrive`](skills/connectors/connect-ai-googledrive/SKILL.md) | Files | Google Drive data model (files, folders, drives, permissions) and procedures for uploading and downloading file content. |
 
-Additional connector-family skills (`connect-ai-crm`, `connect-ai-erp`, `connect-ai-hcm`, `connect-ai-ticketing`, `connect-ai-analytics`, `connect-ai-files`) and connector-specific skills will be listed here as they ship.
+Additional skills will be listed here as they ship.
 
 ## Prerequisites
 
 - **CData Connect AI** account with at least one connection configured
 - The **Connect AI MCP server** added to your AI integration (see [Connect AI Integrations - AI Tools](https://docs.cloud.cdata.com/en/Integrations#ai-tools))
-
-
-## Contributing
-
-Each skill lives in its own folder under [`skills/`](skills/) with a `SKILL.md` file (YAML frontmatter plus the skill body) at its root. The folder name is the skill's installable name (e.g. `--skill connect-ai-base` maps to [`skills/connect-ai-base/`](skills/connect-ai-base/)).
-
-A skill may optionally add a `references/` subdirectory for supporting files that `SKILL.md` links to and loads on demand. This keeps `SKILL.md` itself high-level while deeper material lives alongside it — for example, multi-schema Connectors will contain references for each supported schema.
-
-To add a new skill:
-
-1. Create a new folder under `skills/` named after the skill (e.g. `skills/connect-ai-crm/`).
-2. Add a `SKILL.md` file with the required frontmatter (`name`, `description`, `license`, `metadata`). Use [`skills/connect-ai-base/SKILL.md`](skills/connect-ai-base/SKILL.md) as the reference for frontmatter fields and section conventions.
-3. Optionally add a `references/` subdirectory for supporting files the skill loads on demand, and link to them from `SKILL.md`.
-4. Add a row for the new skill to the **Available skills** table above.
 
 ## License
 
