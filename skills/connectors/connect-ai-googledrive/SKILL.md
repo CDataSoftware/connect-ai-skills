@@ -43,9 +43,9 @@ LIMIT 50
 1. **Identify the connection** — if unknown, call `getCatalogs` and filter for `DRIVER = 'GoogleDrive'`.
 2. **Find the file or folder** — query `Files` by `Name` (use `LIKE`), and narrow with `ModifiedTime`, `OwnerEmail`, `Starred`, `ParentIds` (folder), or `Folder` (true = folder, false = file). Always include a filter — large Drives time out on unfiltered scans.
 3. **Get the `Id`** from the result.
-4. **Access content** (if needed):
-   - Google Doc → `GetDocumentContent` (returns the doc as JSON; extract the text).
-   - Any other file → `DownloadFile` with `@Encoding = 'BASE64'` (returns base64 you decode).
+4. **Access content** (if needed) — **check `MIMEType` first** to choose the right procedure:
+   - `application/vnd.google-apps.document` → `GetDocumentContent` (returns the doc as JSON; extract the text). **Only use this for Google Docs** — it returns empty/failure on all other file types.
+   - Any other MIMEType → `DownloadFile` with `@Encoding = 'BASE64'` (returns base64 you decode). This includes PDFs, Office files, images, text files, Google Sheets, Google Slides, etc.
 5. **Act** — create/copy/move/trash files and folders, or manage sharing, via the stored procedures and table writes below.
 
 ## Data Model
@@ -61,7 +61,7 @@ Folder membership is expressed by `ParentIds` (the parent folder id). `ParentIds
 These are filtered views over the same underlying file objects:
 
 - **Folders** — folders only
-- **Docs** — Google Docs
+- **Docs** — Google Docs. **Note:** this view also returns plain-text files (e.g. `.txt`) and has no `MIMEType` column to filter on; if you need only true Google Docs, query the `Files` table with `WHERE [MIMEType] = 'application/vnd.google-apps.document'` instead of using this view.
 - **Sheets** — Google Sheets
 - **Photos** — image files
 - **Videos** — video files
@@ -237,7 +237,19 @@ Returns the document as Google Docs API **JSON** in a `Content` column (not plai
 - **CreateFolder** — new folder (`@Name`, optional parent)
 - **CopyResource** — duplicate a file/folder to a destination
 - **CreateShortcut** — shortcut pointing at an existing file/folder
-- **MoveResource** — change an item's parent folder (this is how you "move" — `ParentIds` is read-only on the table)
+- **MoveResource** — change an item's parent folder (this is how you "move" — `ParentIds` is read-only on the table). Parameters: `@Id` (required, the file/folder to move) and `@ParentIds` (required, the destination folder id).
+
+```json
+{
+  "catalogName": "YourConnection",
+  "schemaName": "GoogleDrive",
+  "procedureName": "MoveResource",
+  "parameters": {
+    "@Id": "<file-or-folder-id>",
+    "@ParentIds": "<destination-folder-id>"
+  }
+}
+```
 - **MoveToTrash** / **RestoreFromTrash** / **DeleteResource** / **EmptyTrash** — trash lifecycle (`DeleteResource` permanently deletes if already trashed)
 - **UpdateResource** — modify metadata/content/sharing
 - **LockFile** / **UnlockFile** — toggle read-only restriction
@@ -262,7 +274,7 @@ If writes are blocked, the Connect AI connection may be in readonly mode — gui
 - **`Files` contains both files and folders.** Filter with `[Folder] = true/false`. The `Folders`, `Docs`, `Sheets`, `Photos`, and `Videos` tables are read-only type-filtered views over the same objects.
 - **You can't read non-Google-Docs file *contents* via SQL.** Download the file with `DownloadFile` (base64), or use a dedicated CData connection for CSV/Excel/JSON/XML data files. Only Google Docs expose text directly (`GetDocumentContent`).
 - **`DownloadFile` returns base64 in a `FileData` column** when `LocalFile`/`FileStream` are omitted and `@Encoding=BASE64`. For Google Workspace files, set `@FileFormat` to export to PDF/DOCX/plain text.
-- **`GetDocumentContent` returns Google Docs JSON, not plain text** — parse `textRun.content` for the readable text.
+- **`GetDocumentContent` is only for Google Docs** (`MIMEType = 'application/vnd.google-apps.document'`). It returns Google Docs API JSON, not plain text — parse `textRun.content` for the readable text. On any other file type it returns empty content with `Success=false`. For non-Google-Docs files, use `DownloadFile` instead.
 - **`ParentIds` is read-only** — use `MoveResource` to move an item between folders; the table won't accept an UPDATE to `ParentIds`.
 - **Date filters are essential** — large Drives time out without a `ModifiedTime`/`CreatedTime` (or other) filter. Prefer explicit date literals (`'2025-01-01'`) over `DATEADD()`.
 - **Booleans use `true`/`false` (or `1`/`0`)** — e.g. `[Starred] = true`, `[Folder] = false`, `[Trashed] = false`.
