@@ -369,7 +369,7 @@ Prefer the pre-built report tables (`BalanceSheetSummaryReport`, `CustomerBalanc
 
 ### DownloadPDF
 
-Downloads an Invoice, Sales Receipt, or Estimate as a PDF. In cloud-based Connect AI environments, omit `DownloadFolder` and `FileStream` — the procedure returns the file as base64 in the `Base64EncodedData` column. Empirically verified against the QuickBooks Online driver: a `DownloadPDF` call with only `TxnType` and `TxnID` returned a base64-encoded PDF.
+Downloads an Invoice, Sales Receipt, or Estimate as a PDF. In cloud-based Connect AI environments, omit `DownloadFolder` and `FileStream` — the procedure returns the file as base64 in the `Base64EncodedData` column. A `DownloadPDF` call with only `TxnType` and `TxnID` returns the base64-encoded PDF.
 
 ```json
 {

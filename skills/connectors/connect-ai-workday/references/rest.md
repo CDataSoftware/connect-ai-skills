@@ -179,7 +179,7 @@ Discover the available procedures with `getProcedures` (any valid schema works).
 - worker-scoped action procedures (time-off requests, one-time payments, etc.)
 - requisition lifecycle procedures (cancel, close)
 
-`Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., a job-change `Submit*` takes `JobChange_Id`, **not** `Id`). Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday). This naming convention is expected to generalize across `Submit*` procedures, though not every one has been individually verified.
+`Begin*` / `Submit*` are always called in pairs — `Begin*` returns the change ID via the generic `Id` output column; `Submit*` then consumes it as `<ChangeName>_Id` (e.g., a job-change `Submit*` takes `JobChange_Id`, **not** `Id`). Don't call `Submit*` without `Begin*`, and don't forget `Submit*` after applying changes (otherwise the change isn't committed to Workday). This naming convention is expected to generalize across `Submit*` procedures.
 
 ### Cross-cutting messaging / action procedures
 

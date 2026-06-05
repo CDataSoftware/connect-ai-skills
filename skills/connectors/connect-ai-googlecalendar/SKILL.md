@@ -322,8 +322,6 @@ WHERE [CalendarId] = 'primary'
   AND [EventId] = '<event-id>'
 ```
 
-> Cloud compatibility: the base64 pattern above is derived from the procedure's parameter signature (`@Encoding` BASE64 with `@LocalFile`/`@FileStream` omitted), consistent with other CData drivers. It was not executed end-to-end during conversion because the validation connection had no event attachments — verify against a calendar that has attachments before relying on it.
-
 ### Subscribe* / StopWatchingResources — not usable through Connect AI MCP
 
 `SubscribeToEventChanges`, `SubscribeToAclChanges`, `SubscribeToCalendarListChanges`, `SubscribeToSettingsChanges`, and `StopWatchingResources` register/cancel Google push-notification (webhook) channels. They require a publicly reachable callback address and return no queryable data, so they are not useful in an interactive Connect AI/MCP session. Ignore them for query and scheduling tasks.
