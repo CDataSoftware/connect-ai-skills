@@ -173,10 +173,12 @@ Applies cell formatting to a specified range within a sheet.
 Attach a BigQuery data source (and data-source-backed table) to a spreadsheet. These require a custom OAuth app with the `bigquery.readonly` scope and are only relevant for BigQuery-connected sheets.
 
 ### DownloadDocument — Not currently supported in cloud
-**Not currently supported in cloud-based Connect AI environments.** The `LocalFile` parameter requires disk access, which is unavailable in the cloud. The `FileStream` parameter expects a Java OutputStream object, which cannot be passed through the MCP interface. Support for file downloads via stored procedures is planned — check for updates if this capability is needed.
+
+`DownloadDocument` returns the exported file via `LocalFile` (server-side disk path, unavailable in cloud) or `FileStream` (Java `OutputStream`, unable to pass through the MCP interface). It also exposes an `Encoding` (base64) retrieval path, but that path is **not functional in the cloud either** — do not attempt it as a workaround, and do not invent parameter names the driver does not accept. Treat document download as a current limitation: to read a spreadsheet's contents, query its data tables directly, or download it from the Google Sheets UI. Support for file downloads via stored procedures is planned — check for updates if this capability is needed.
 
 ### UploadDocument — Not currently supported in cloud
-**Not currently supported in cloud-based Connect AI environments.** The `LocalFile` parameter requires disk access, which is unavailable in the cloud. The `Content` parameter expects a Java InputStream object, which cannot be passed through the MCP interface. Support for file uploads via stored procedures is planned — check for updates if this capability is needed. To build a spreadsheet from scratch, use `CreateSpreadsheet` + `AddSheet` + INSERT (see Write Operations) instead.
+
+`UploadDocument` accepts `LocalFile` (server-side disk path, unavailable in cloud) or `Content` (Java `InputStream`, unable to pass through the MCP interface). It also accepts a base64 string via `FileData` + `Encoding`, but that path is **not functional in the cloud either** — do not attempt it as a workaround, and do not invent parameter names the driver does not accept. Treat file uploads as a current limitation. To build a spreadsheet from scratch, use `CreateSpreadsheet` + `AddSheet` + INSERT (see Write Operations) instead. Support for file uploads via stored procedures is planned — check for updates if this capability is needed.
 
 ## Write Operations
 
