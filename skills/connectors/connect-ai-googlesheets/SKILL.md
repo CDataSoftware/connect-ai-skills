@@ -155,7 +155,7 @@ Adds a worksheet to an existing spreadsheet. Supply `@HeaderNames` so the new sh
 Enclose a header in double quotes inside `@HeaderNames` if it contains special characters. Optional: `@Index`, `@RowCount`, `@ColumnCount`, `@FrozenRowCount`, `@FrozenColumnCount`, `@Hidden`, `@HideGridlines`, `@RightToLeft`.
 
 ### UpdateSheet
-Updates properties (title, dimensions, frozen rows/columns, visibility) of an existing sheet, identified by `@SpreadsheetId` and `@SheetId`.
+Updates properties of an existing **worksheet/tab** — `@Title` (the tab's name), dimensions, frozen rows/columns, visibility — identified by `@SpreadsheetId` and `@SheetId` (both required). `@Title` renames the *tab*, not the spreadsheet document. There is no procedure to rename a spreadsheet: the `Spreadsheets` table is read-only, so set a spreadsheet's name at creation via `CreateSpreadsheet @Title`, or rename it in the Google Sheets UI.
 
 ### CopySheet
 Copies a sheet from one spreadsheet into another.
@@ -188,10 +188,13 @@ VALUES ('Ship v2', 'A. Patel', '40')
 ```
 
 ```sql
+-- Preferred: target the derived [id] for a deterministic single-row update
 UPDATE [GoogleSheets_DB].[GoogleSheets].[Engineering OKR_Sheet1]
 SET [Progress %] = '75'
-WHERE [Objective] = 'Ship v2'
+WHERE [id] = 4
 ```
+
+Key UPDATE and DELETE statements on the derived `[id]` column when the data table has one — this matches the driver's documented `WHERE Id = <expression>` grammar and affects exactly one row. A `WHERE` clause on a non-key column is accepted but updates *every* row whose value matches (e.g. `WHERE [Name] = 'Smoke Test'` updates all rows named "Smoke Test"). When the driver derived no `id` for the sheet, there is no guaranteed single-row key, so scope the filter deliberately. Parameterize values with `@param` (or `?`) and pass them as strings for VARCHAR cells.
 
 To build a new spreadsheet end to end: call `CreateSpreadsheet`, then `AddSheet` (with `@HeaderNames` to lay down the header row), then INSERT into the resulting `[SpreadsheetName_SheetName]` data table.
 
