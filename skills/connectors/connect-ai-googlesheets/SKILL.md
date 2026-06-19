@@ -1,7 +1,7 @@
 ---
 name: connect-ai-googlesheets
 description: Use when querying Google Sheets data through CData Connect AI. Covers the Google Sheets data model (Spreadsheets and Sheets metadata, dynamic per-sheet data tables), the spreadsheet→sheet→data query flow, the create-spreadsheet/add-sheet/insert workflow, stored procedures, and Google Sheets-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"
@@ -81,7 +81,7 @@ Google Sheets data is organized as spreadsheets → sheets → cell data. Work d
 
 ### `[SpreadsheetName_SheetName]` data tables
 
-- **id** — auto-generated primary key, present when the driver can derive one.
+- **id** — auto-generated `INTEGER` primary key. The driver adds this to every data table (even sheets that have no key in the source), so it is reliably available to key `UPDATE`/`DELETE` on.
 - Remaining columns come from the sheet's header row. Always run `getColumns` before querying — column names, spaces, and special characters vary per sheet.
 
 ## Common Query Patterns
@@ -196,7 +196,7 @@ SET [Progress %] = '75'
 WHERE [id] = 4
 ```
 
-Key UPDATE and DELETE statements on the derived `[id]` column when the data table has one — this matches the driver's documented `WHERE Id = <expression>` grammar and affects exactly one row. A `WHERE` clause on a non-key column is accepted but updates *every* row whose value matches (e.g. `WHERE [Name] = 'Smoke Test'` updates all rows named "Smoke Test"). When the driver derived no `id` for the sheet, there is no guaranteed single-row key, so scope the filter deliberately. Parameterize values with `@param` (or `?`) and pass them as strings for VARCHAR cells.
+Key UPDATE and DELETE statements on the auto-generated `[id]` column — this matches the driver's documented `WHERE Id = <expression>` grammar and affects exactly one row. The driver adds an `id` key to every data table, so it is always available. A `WHERE` clause on a non-key column is accepted but updates *every* row whose value matches (e.g. `WHERE [Name] = 'Smoke Test'` updates all rows named "Smoke Test"), so prefer `[id]` unless you intend a multi-row change. Parameterize values with `@param` (or `?`) and pass them as strings for VARCHAR cells.
 
 To build a new spreadsheet end to end: call `CreateSpreadsheet`, then `AddSheet` (with `@HeaderNames` to lay down the header row), then INSERT into the resulting `[SpreadsheetName_SheetName]` data table.
 
@@ -206,9 +206,9 @@ Write access is governed by the connection's mode in Connect AI. If inserts, upd
 
 - **Data tables are dynamic and per-sheet.** Every worksheet becomes its own table named `[SpreadsheetName_SheetName]`. `getTables` returns these as a flat list mixed in with the `Spreadsheets`, `Sheets`, and `Folders` metadata tables.
 - **Always `getColumns` a data table before querying it.** Its columns derive from the sheet's header row, so they are unknown until inspected and differ from sheet to sheet.
-- **Special characters in names are replaced.** When spreadsheet or sheet names contain characters that aren't SQL-safe, they are substituted (typically with underscores) in the table name.
+- **Special characters in names are preserved by default.** Spreadsheet and sheet names keep their spaces and symbols in table names (e.g. `[BI Application Testing_Power BI]`), so always bracket them. They are only replaced with underscores if the connection sets `UseSimpleNames=true`, which is off by default.
 - **Bracket every identifier.** Spreadsheet, sheet, and column names routinely contain spaces and symbols (e.g. `[Progress %]`); always wrap them in `[ ]`.
 - **Column data types default to VARCHAR.** Sheet cell columns are typically untyped text. Be deliberate about numeric and date comparisons, and pass values as strings in INSERT/UPDATE.
-- **Primary keys are not guaranteed.** A data table only has an `id` primary key when the driver can derive one; many sheets have none.
+- **Data tables have an auto-generated `id` primary key.** The driver adds an `INTEGER` `id` key column to every data table, so a deterministic single-row key is reliably available for `UPDATE`/`DELETE`.
 - **Preview before pulling full sheets.** Use `LIMIT` to sample large sheets before running unbounded queries.
 - **Metadata tables are read-only.** `Spreadsheets` and `Sheets` cannot be written to — manage spreadsheets and sheets through the stored procedures, and write cell data through the data tables.
