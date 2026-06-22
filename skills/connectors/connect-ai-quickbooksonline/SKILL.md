@@ -1,7 +1,7 @@
 ---
 name: connect-ai-quickbooksonline
 description: Use when querying QuickBooks Online data through CData Connect AI. Covers the QuickBooks Online data model (GL, AP, AR, items, banking), line-item patterns, LineAggregate XML for inserts, report objects, and QuickBooks-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

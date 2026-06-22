@@ -1,7 +1,7 @@
 ---
 name: connect-ai-confluence
 description: Use when querying Confluence Cloud / Server data through CData Connect AI. Covers the Confluence data model (spaces, pages, comments, attachments, users, plus the PageChildren/PageAncestors/PageComments/Labels/Tasks/ViewsAnalytics views), the space → page → refine query workflow, image/attachment retrieval via base64, and Confluence-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

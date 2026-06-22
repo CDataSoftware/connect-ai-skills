@@ -2,7 +2,7 @@
 name: connect-ai-base
 description: >
    Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data. This includes: questions for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, Jira, SQL Server, Snowflake, etc.); requests to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "pull up recent orders"); the user naming a connector or data source; business-domain questions ("top customers," "open tickets," "headcount by dept," "pipeline by stage") when at least one Connect AI connection is available; or conversations already involving Connect AI tool calls. Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery, and SQL dialect guidance. Load connector-family (connect-ai-crm, connect-ai-hcm, connect-ai-erp) or connector-specific (connect-ai-salesforce) skills on top for deeper patterns.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

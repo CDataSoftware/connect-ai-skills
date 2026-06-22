@@ -1,7 +1,7 @@
 ---
 name: connect-ai-bullhorncrm
 description: Use when querying Bullhorn CRM data through CData Connect AI. Covers the Bullhorn data model (Candidates, ClientCorporations, JobOrders, JobSubmissions, Placements), recruiting query patterns, file-attachment stored procedures, edit-history tables, and Bullhorn-specific conventions (mixed FK casing, special-character column names, soft-delete and permission patterns). Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

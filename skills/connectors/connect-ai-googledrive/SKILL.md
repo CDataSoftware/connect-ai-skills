@@ -1,7 +1,7 @@
 ---
 name: connect-ai-googledrive
 description: Use when querying Google Drive data through CData Connect AI. Covers the Google Drive data model (Files as the central files+folders table, type views, Permissions, Comments, Revisions, Drives), file-content access via stored procedures (download as base64, Google Docs text), the upload/move/trash lifecycle, and Google Drive-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

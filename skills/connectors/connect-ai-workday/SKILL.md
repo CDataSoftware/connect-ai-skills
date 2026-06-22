@@ -1,7 +1,7 @@
 ---
 name: connect-ai-workday
 description: Use when querying Workday data through CData Connect AI. Covers Workday's multi-connection-type model (REST/WQL/Reports/SOAP), how to identify which type a connection exposes, and routes to a per-connection-type reference for the data model, prompt-column lookups, value tables, change-resource procedures, query patterns, and Workday conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"
