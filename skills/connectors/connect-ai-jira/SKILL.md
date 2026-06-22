@@ -1,7 +1,7 @@
 ---
 name: connect-ai-jira
 description: Use when querying Jira data through CData Connect AI. Covers the Jira data model, issue hierarchy, query patterns, stored procedures, and Jira-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

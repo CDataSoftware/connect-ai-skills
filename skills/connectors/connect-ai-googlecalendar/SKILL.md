@@ -1,7 +1,7 @@
 ---
 name: connect-ai-googlecalendar
 description: Use when querying Google Calendar data through CData Connect AI. Covers the Google Calendar data model (events, calendars, ACLs, attachments), the per-calendar table pattern, event/availability query patterns, stored procedures for creating and moving events, and Google Calendar-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

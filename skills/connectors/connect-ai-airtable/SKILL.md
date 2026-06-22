@@ -1,7 +1,7 @@
 ---
 name: connect-ai-airtable
 description: Use when querying Airtable data through CData Connect AI. Covers Airtable's multi-schema model (the Information metadata schema plus one dynamic schema per base), per-base table/view anatomy, attachment and collaborator field handling, comments, stored procedures, and Airtable-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

@@ -1,7 +1,7 @@
 ---
 name: connect-ai-salesforce
 description: Use when querying Salesforce data through CData Connect AI. Covers the Salesforce data model, query patterns, stored procedures, and Salesforce-specific conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"
