@@ -30,7 +30,7 @@ npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill c
 
 | Skill | Family | Description |
 |---|---|---|
-| [`connect-ai-base`](skills/connect-ai/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all other skills compose on top of it. |
+| [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all other skills compose on top of it. |
 | [`connect-ai-salesforce`](skills/connectors/connect-ai-salesforce/SKILL.md) | CRM | Salesforce data model, query patterns, stored procedures, and Salesforce-specific conventions. |
 | [`connect-ai-bullhorncrm`](skills/connectors/connect-ai-bullhorncrm/SKILL.md) | CRM | Bullhorn CRM recruiting data model (Candidates, ClientCorporations, JobOrders, JobSubmissions, Placements), file-attachment procedures, edit-history tables, and Bullhorn conventions. |
 | [`connect-ai-workday`](skills/connectors/connect-ai-workday/SKILL.md) | HCM | Workday's multi-connection-type model (REST/WQL/Reports/SOAP), per-connection-type references, prompt-column lookups, value tables, and change-resource procedures. |
