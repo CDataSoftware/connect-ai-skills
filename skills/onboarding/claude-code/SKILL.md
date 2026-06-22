@@ -64,13 +64,13 @@ Phrase the question conversationally — e.g. *"Before we start, which of these 
 
 The user does not have an account yet. **Open the sign-up page for them automatically** rather than asking them to navigate there — they should not have to copy-paste a URL. Launch it with the platform-appropriate command before listing the rest of the steps:
 
-- Windows (PowerShell): `Start-Process "https://cloud-login.cdata.com/u/signup"`
-- macOS: `open "https://cloud-login.cdata.com/u/signup"`
-- Linux: `xdg-open "https://cloud-login.cdata.com/u/signup"`
+- Windows (PowerShell): `Start-Process "https://www.cdata.com/ai/signup/"`
+- macOS: `open "https://www.cdata.com/ai/signup/"`
+- Linux: `xdg-open "https://www.cdata.com/ai/signup/"`
 
 If the command fails (headless/sandboxed environment with no browser), fall back to telling the user to open the URL manually. Then direct them as follows:
 
-1. The sign-up page (**https://cloud-login.cdata.com/u/signup**) should now be open in your browser — if it didn't pop up, open it manually.
+1. The sign-up page (**https://www.cdata.com/ai/signup/**) should now be open in your browser — if it didn't pop up, open it manually.
 2. Sign up using either:
    - **Email + name + password** — enter the user's email address and name, set a password, then submit, or
    - **SSO** — click the **LinkedIn**, **Microsoft**, or **Google** button and authorize (no password is set on the CData side; the SSO provider handles auth).
