@@ -137,6 +137,19 @@ Run `getColumns` on a table before writing targeted queries — Sage Intacct tab
 - `Termname` — Payment term
 - `Docnumber` — Reference number
 
+### Arinvoiceitem
+Line table for `Arinvoice` — join on `Recordkey` = `Arinvoice.Recordno`.
+- `Recordno` — Primary key of the line
+- `Recordkey` — Foreign key to the parent `Arinvoice.Recordno` (this is the header→line join)
+- `Line_no` — Line number within the invoice
+- `Accountno` / `Accounttitle` / `Accountlabel` — GL account number, title, and label (e.g., `SALES`)
+- `Entrydescription` — Per-line description (this is the line's text column)
+- `Amount` — Base-currency line amount; `Trx_amount` for transaction currency
+- `Departmentid` / `Locationid` — Dimension references (may be NULL)
+- `State` — Line state
+
+> `Arinvoiceitem` has no `Description`, `Quantity`, `Unit`, or `Unitprice` columns. Per-line text lives in `Entrydescription`. Lines carry a calculated `Amount`, not a quantity × unit-price decomposition — invoice lines do not store quantity or unit price separately on this surface.
+
 ### Apbill
 - `Recordno` — Primary key
 - `Recordid` — Bill number
@@ -146,6 +159,19 @@ Run `getColumns` on a table before writing targeted queries — Sage Intacct tab
 - `Whencreated`, `Whenposted`, `Whendue`, `Whenpaid` — Dates
 - `Currency` — Transaction currency
 - `Termname` — Payment term
+
+### Apbillitem
+Line table for `Apbill` — join on `Recordkey` = `Apbill.Recordno`. Same shape as `Arinvoiceitem`.
+- `Recordno` — Primary key of the line
+- `Recordkey` — Foreign key to the parent `Apbill.Recordno` (the header→line join)
+- `Line_no` — Line number within the bill
+- `Accountno` / `Accounttitle` / `Accountlabel` — GL account number, title, and label
+- `Entrydescription` — Per-line description (the line's text column)
+- `Amount` — Base-currency line amount; `Trx_amount` for transaction currency
+- `Departmentid` / `Locationid` — Dimension references (may be NULL)
+- `State` — Line state
+
+> `Apbillitem` has no `Description`, `Quantity`, `Unit`, or `Unitprice` columns — the same shape as `Arinvoiceitem`. Per-line text lives in `Entrydescription`, and lines carry a calculated `Amount` rather than a quantity × unit-price breakdown.
 
 ### Customer
 - `Customerid` — **Primary/business key**
@@ -181,6 +207,9 @@ Run `getColumns` on a table before writing targeted queries — Sage Intacct tab
 - `Managerid` / `Managercontactname` — Project manager
 
 ### AccountBalance
+
+> Note: `AccountBalance` is a VIEW with its own column set; do not confuse it with the `AccountBalanceReport` stored procedure (documented separately under [Stored Procedures](#stored-procedures)). The view's balance columns are `startbalance`, `debits`, `credits`, `adjdebits`, `adjcredits`, and `endbalance`. The procedure outputs a column named `periodbalance` that has **no equivalent on the view** — querying `AccountBalance` for `periodbalance` will fail.
+
 A **parameterized view**: it returns period balances and accepts filter columns in the `WHERE` clause. Supply **either** `ReportingPeriodName` **or** a date + account range.
 
 - `ReportingPeriodName` — Reporting period (e.g., `Month Ended January 2025`); alternative to `StartDate`/`EndDate`

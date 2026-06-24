@@ -26,6 +26,8 @@ This skill replaces `getInstructions` for the Sage Intacct driver. Do not call `
 
 A Sage Intacct connection presents one of **two completely different surfaces**, determined by the CData `Schema` connection property. The surface changes the entire object model — table names, column-naming conventions, the GL transaction model, available stored procedures, and write mechanics all differ. **The surface cannot be inferred from the connection name**, so the first move on any Sage Intacct connection is to identify it with `getSchemas`.
 
+> **Always run `getSchemas` as the FIRST tool call against any Sage Intacct connection** — before any `queryData`, `getTables`, or `getColumns` call. **Do not infer the surface from the connection name.** A name may carry a `_Rest`, `_Legacy`, `_NonLegacy`, or similar suffix, but these are not a reliable surface indicator and may be misleading. The schema returned by `getSchemas` is the only authoritative signal: `SageIntacct` → XML surface, `SageIntacctRest` → REST surface.
+
 | Surface | `Schema` property | Schema returned by `getSchemas` | Object model | Stored procedures |
 |---|---|---|---|---|
 | **XML API** | `SageIntacct` (default) | `SageIntacct` | Lowercase legacy object names: `Glaccount`, `Gldetail`, `Arinvoice`, `Apbill`, `Customer`, `Vendor` | Yes (~14: `ReverseInvoice`, `VoidAPPayment`, `AccountBalanceReport`, …) |
