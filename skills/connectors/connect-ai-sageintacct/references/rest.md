@@ -18,7 +18,7 @@ REST columns follow conventions that are consistent across every table — learn
 
 - **`key`** is the system primary key (every entity has it; marked as the key, read-only). Use `key` for joins and as the target of updates.
 - **`id`** is the business/human-facing identifier (account number, customer ID, etc.). Some entities also have a more specific document-number column — `invoiceNumber` on `Invoice`, `billNumber` on `Bill`, `documentId` on `JournalEntryLine`.
-- **Reference fields are flattened quads**: `<entity>_Id`, `<entity>_Key`, `<entity>_Name`, `<entity>_Href`. For example `customer_Id` / `customer_Key` / `customer_Name`, `glAccount_Id` / `glAccount_Key` / `glAccount_Name`, `vendor_Id` / `vendor_Key`. Filter or join on `_Key` (system key) or `_Id` (business ID); `_Name` is the display value; `_Href` is the REST API link.
+- **Reference fields are flattened quads**: `<entity>_Id`, `<entity>_Key`, `<entity>_Name`, `<entity>_Href`. For example `customer_Id` / `customer_Key` / `customer_Name`, `glAccount_Id` / `glAccount_Key` / `glAccount_Name`, `vendor_Id` / `vendor_Key`. Filter or join on `_Key` (system key) — works everywhere. `_Id` (business ID) is filterable on master and header tables but NOT on line tables (`InvoiceLine`, `BillLine`, `JournalEntryLine`), where the REST driver only accepts `_Key` for the parent reference. `_Name` is the display value; `_Href` is the REST API link.
 - **camelCase column names** throughout (`accountType`, `invoiceDate`, `totalTxnAmount`, `dueDate`).
 - **Nested objects are flattened with a prefix**, e.g. `paymentInformationTotalTxnAmountPaid`, `billSummary_IsSummaryPosted`, `invoiceSummary_GlPostingDate`.
 - **`ListAggregate_*` columns** carry child collections (line items, contacts, etc.) — e.g. `ListAggregate_Lines`, `ListAggregate_TaxEntries`, `ListAggregate_ContactList`. They are used on `INSERT` to supply line items (see [Write Operations](#write-operations)).
@@ -157,7 +157,7 @@ There are **no stored procedures** on the REST surface — everything is SQL plu
 ```sql
 SELECT [id], [name], [accountType], [status]
 FROM [YourConnection].[SageIntacctRest].[Account]
-WHERE [status] = 'active' AND [accountType] = 'balancesheet'
+WHERE [status] = 'active' AND [accountType] = 'balanceSheet'
 ORDER BY [id]
 ```
 
@@ -241,7 +241,7 @@ If a write is blocked, the Connect AI connection may be read-only — guide the 
 ## REST-Specific Conventions
 
 - **`key` vs. `id`.** `key` is the system primary key — use it for joins and updates. `id` is the business identifier; document entities add a specific number column (`invoiceNumber`, `billNumber`). Don't confuse the two.
-- **Reference fields are `_Id` / `_Key` / `_Name` / `_Href` quads.** Join and filter on `_Key` or `_Id`; `_Name` is display-only.
+- **Reference fields are `_Id` / `_Key` / `_Name` / `_Href` quads.** Filter or join on `_Key` everywhere; `_Id` works on master/header tables but not on line tables. `_Name` is display-only.
 - **Everything is camelCase**, and nested objects are flattened with a prefix (`paymentInformationTotalTxnAmountPaid`, `billSummary_IsSummaryPosted`). Run `getColumns` — these names are not guessable.
 - **`status` (masters) vs. `state` (transactions).** Filter masters by `status = 'active'`; filter transactions by `state` plus a date.
 - **Base vs. transaction currency.** `totalBaseAmount` / `baseAmount` are home currency; `totalTxnAmount` / `txnAmount` are transaction currency.
