@@ -228,7 +228,7 @@ FROM [YourConnection].[SageIntacctRest].[Bill]
 
 ```sql
 UPDATE [YourConnection].[SageIntacctRest].[Customer]
-SET [creditLimit] = 50000
+SET [name] = 'Acme Industries (US)'
 WHERE [key] = '1234'
 ```
 
