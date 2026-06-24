@@ -1,7 +1,7 @@
 ---
 name: connect-ai-sageintacct
 description: Use when querying Sage Intacct data through CData Connect AI. Sage Intacct exposes two different API surfaces — an XML API and a REST API — that present entirely different data models, table names, and column conventions. This skill identifies which surface a connection uses and routes to the matching reference for the data model, query patterns, stored procedures, write operations, and conventions. Composes on top of the connect-ai-base skill.
-license: Apache-2.0
+license: MIT
 metadata:
   author: CData Software
   version: "1.0"

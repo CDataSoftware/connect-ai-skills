@@ -303,7 +303,7 @@ WHERE [glaccountno] = '6230'
 ### AR invoice with line items
 
 ```sql
-SELECT i.[Recordid], i.[Customername], i.[Totalentered], li.[Description], li.[Amount]
+SELECT i.[Recordid], i.[Customername], i.[Totalentered], li.[Entrydescription], li.[Amount]
 FROM [YourConnection].[SageIntacct].[Arinvoice] i
 LEFT JOIN [YourConnection].[SageIntacct].[Arinvoiceitem] li ON i.[Recordno] = li.[Recordkey]
 WHERE i.[Recordid] = 'INV-12345'
