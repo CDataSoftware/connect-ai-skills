@@ -54,7 +54,7 @@ All queries in Connect AI use a three-part fully-qualified name:
 
 Where:
 - `[Catalog]` = the user-defined connection name (discovered via `getCatalogs` or toolkit tool names)
-- `[Schema]` = the schema name. For single-schema drivers, this is named after the driver itself (e.g., `Jira`, `SageIntacct`, `BullhornCRM`). Multi-schema sources expose multiple options (e.g., Workday exposes `REST`, `WQL`, `Reports`, and `SOAP`)
+- `[Schema]` = the schema name. For single-schema drivers, this is named after the driver itself (e.g., `Jira`, `QuickBooksOnline`, `BullhornCRM`). Multi-schema sources expose multiple options (e.g., Workday exposes `REST`, `WQL`, `Reports`, and `SOAP`)
 - `[Table]` = the target table
 
 Example:
