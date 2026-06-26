@@ -29,7 +29,7 @@ Google Sheets is a single-schema driver. The schema name is `GoogleSheets`.
 Use the three-part name `[Catalog].[Schema].[Table]`, where the catalog is the connection name:
 
 ```sql
-SELECT * FROM [GoogleSheets_DB].[GoogleSheets].[Spreadsheets]
+SELECT * FROM [YourConnection].[GoogleSheets].[Spreadsheets]
 ```
 
 ## Query Process
@@ -90,7 +90,7 @@ Google Sheets data is organized as spreadsheets → sheets → cell data. Work d
 
 ```sql
 SELECT [Id], [Name], [ModifiedTime], [OwnerEmail]
-FROM [GoogleSheets_DB].[GoogleSheets].[Spreadsheets]
+FROM [YourConnection].[GoogleSheets].[Spreadsheets]
 WHERE [ModifiedTime] >= '2026-01-01'
 ORDER BY [ModifiedTime] DESC
 ```
@@ -99,7 +99,7 @@ ORDER BY [ModifiedTime] DESC
 
 ```sql
 SELECT [Id], [Name], [OwnerName], [OwnerEmail]
-FROM [GoogleSheets_DB].[GoogleSheets].[Spreadsheets]
+FROM [YourConnection].[GoogleSheets].[Spreadsheets]
 WHERE [OwnerEmail] = 'user@example.com'
 ```
 
@@ -107,7 +107,7 @@ WHERE [OwnerEmail] = 'user@example.com'
 
 ```sql
 SELECT [SheetId], [SheetName], [RowCount], [ColumnCount]
-FROM [GoogleSheets_DB].[GoogleSheets].[Sheets]
+FROM [YourConnection].[GoogleSheets].[Sheets]
 WHERE [SpreadsheetId] = '<spreadsheet-id>'
 ORDER BY [SheetIndex]
 ```
@@ -118,7 +118,7 @@ The data table is named `[SpreadsheetName_SheetName]`. Run `getColumns` first to
 
 ```sql
 SELECT *
-FROM [GoogleSheets_DB].[GoogleSheets].[Engineering OKR_Sheet1]
+FROM [YourConnection].[GoogleSheets].[Engineering OKR_Sheet1]
 WHERE [Progress %] < 50
 ORDER BY [Progress %] ASC
 ```
@@ -132,7 +132,9 @@ Creates a new spreadsheet in the user's Google Drive. Returns the new spreadshee
 
 ```json
 {
-  "procedure": "CreateSpreadsheet",
+  "catalogName": "YourConnection",
+  "schemaName": "GoogleSheets",
+  "procedureName": "CreateSpreadsheet",
   "parameters": { "@Title": "New Spreadsheet" }
 }
 ```
@@ -143,7 +145,9 @@ Adds a worksheet to an existing spreadsheet. Supply `@HeaderNames` so the new sh
 
 ```json
 {
-  "procedure": "AddSheet",
+  "catalogName": "YourConnection",
+  "schemaName": "GoogleSheets",
+  "procedureName": "AddSheet",
   "parameters": {
     "@SpreadsheetId": "<spreadsheet-id>",
     "@SheetId": "1",
@@ -185,13 +189,13 @@ Attach a BigQuery data source (and data-source-backed table) to a spreadsheet. T
 Write spreadsheet content by inserting and updating rows on the `[SpreadsheetName_SheetName]` data tables. Run `getColumns` first so you reference the sheet's real header columns.
 
 ```sql
-INSERT INTO [GoogleSheets_DB].[GoogleSheets].[Engineering OKR_Sheet1] ([Objective], [Owner], [Progress %])
+INSERT INTO [YourConnection].[GoogleSheets].[Engineering OKR_Sheet1] ([Objective], [Owner], [Progress %])
 VALUES ('Ship v2', 'A. Patel', '40')
 ```
 
 ```sql
 -- Preferred: target the derived [id] for a deterministic single-row update
-UPDATE [GoogleSheets_DB].[GoogleSheets].[Engineering OKR_Sheet1]
+UPDATE [YourConnection].[GoogleSheets].[Engineering OKR_Sheet1]
 SET [Progress %] = '75'
 WHERE [id] = 4
 ```
