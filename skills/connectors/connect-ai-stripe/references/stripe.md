@@ -278,7 +278,7 @@ Captures funds on a PaymentIntent whose `Status = 'requires_capture'`. `PaymentI
 
 ### FinalizeInvoice
 
-Finalizes a draft invoice (`InvoiceId` required; optional `AutoAdvance`). Pair with `VoidInvoice` to void a finalized invoice.
+Finalizes a draft invoice (`InvoiceId` required; optional `AutoAdvance`). Pair with `VoidInvoice` to void a finalized invoice. Finalizing a **zero-amount** invoice resolves it straight to `paid` (not `open`) — Stripe auto-resolves zero-value invoices.
 
 ### DownloadFile / DownloadQuote
 
@@ -296,9 +296,14 @@ Both download content. **In cloud Connect AI, omit `DownloadLocation` (server-si
 }
 ```
 
-### UploadFile — not currently usable in cloud
+### UploadFile — do not attempt in cloud
 
-`UploadFile` accepts `FullPath` (server-side disk path, unavailable in cloud) or `Content` (Java `InputStream`, unable to pass through the MCP interface). There is no base64 string alternative for the upload path. Treat file uploads as a current limitation — do not invent parameter names the driver does not accept. Support for file uploads via stored procedures is planned — check for updates if this capability is needed.
+**Do not call `UploadFile` in a cloud / Connect AI (MCP) context — explain the limitation rather than issuing the call.** Its `Content` parameter accepts only a Java `InputStream` (there is no base64 or plain-string path), and `FullPath` refers to server-side disk that is unreachable in cloud. No parameter combination works, so calling it only produces an error. Support for string/base64 uploads is planned — check for updates if this capability is needed.
+
+Two caveats worth confirming:
+
+- In the current driver build, `getProcedureParameters` for `UploadFile` may expose only `Purpose` / `FileName` / `Content` (no `FullPath`). Treat this as needing driver-team confirmation — the parameter reference above may be stale.
+- There is no generic "attach a file to the account" operation. `Accounts` exposes only identity-verification document fields (`*VerificationDocumentFront` / `*VerificationDocumentBack`, for the `identity_document` / `additional_verification` purposes), not arbitrary or tax documents.
 
 ## Write Operations
 

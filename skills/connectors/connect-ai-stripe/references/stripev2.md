@@ -4,6 +4,8 @@
 >
 > **StripeV2 is a narrow surface, not a billing data model.** It exposes Stripe's V2 Core/Events and billing-meter APIs only — event destinations, thin events, and meter events. There are no `Customers`, `Invoices`, `Subscriptions`, `Charges`, or `PaymentIntent` tables here. For that data, use the classic `Stripe` surface ([references/stripe.md](stripe.md)); do not carry classic table or column names over to this surface.
 
+**Precondition — never probe for classic objects.** On a StripeV2 connection the only queryable objects are `EventDestinations` and `ThinEvents`. There are no `Customers`, `Invoices`, `Subscriptions`, `Charges`, or `PaymentIntent` tables. If asked for any of that data, do **not** issue a query to confirm — state immediately that it isn't available on this surface and direct the user to a classic `Stripe` connection.
+
 ## Schema
 
 The schema name is `StripeV2`. The three-part name is `[Catalog].[StripeV2].[Table]`:
@@ -54,7 +56,7 @@ Procedures: `CreateBillingMeterEvent`, `CreateBillingMeterEventAdjustment`, `Ena
 - `DataDeveloperMessageSummary`, `DataReasonErrorCount`, `DataReasonErrorTypes`, `DataValidationStart`, `DataValidationEnd` — extra detail included when the event is fetched
 - `Livemode` — BOOLEAN
 
-> **`ThinEvents` requires a filter.** A query with no `WHERE` fails with *"At least ID, or RELATED_OBJECT/ID should be specified."* Filter by `Id` (a specific event) or by `RelatedObjectId` (all events for an object). It covers only the **last 30 days**.
+> **Precondition — always filter `ThinEvents`.** Never issue a `ThinEvents` SELECT without a `WHERE` clause on `Id` or `RelatedObjectId`; an unfiltered query fails with *"At least ID, or RELATED_OBJECT/ID should be specified."* Filter by `Id` (a specific event) or `RelatedObjectId` (all events for an object). If the user asks for "recent events" or "all events" without naming an object, ask which event id or related object they mean — do **not** run an unfiltered query to see what happens. `ThinEvents` covers only the **last 30 days**.
 
 ## Common Query Patterns
 
@@ -130,8 +132,8 @@ If writes are blocked, the Connect AI connection may be in readonly mode — gui
 
 ## StripeV2-Specific Conventions
 
-- **Narrow surface.** Only `EventDestinations` and `ThinEvents` exist, plus the five procedures above. For billing/payments data (customers, invoices, charges, subscriptions), the connection must use the classic `Stripe` schema instead.
-- **`ThinEvents` always needs a filter** (`Id` or `RelatedObjectId`) and only goes back 30 days.
+- **Narrow surface.** Only `EventDestinations` and `ThinEvents` exist, plus the five procedures above. For billing/payments data (customers, invoices, charges, subscriptions), the connection must use the classic `Stripe` schema instead — if asked for it here, say so immediately rather than querying to check.
+- **Never query `ThinEvents` unfiltered** — require a `WHERE` on `Id` or `RelatedObjectId`; it only goes back 30 days.
 - **Destination status is procedure-driven**, not a column write — flip it with `EnableEventDestination` / `DisableEventDestination`.
 - **`WebhookEndpointSigningSecret` is only available at creation** — it is readonly and not returned on later queries.
 - **Booleans are real BOOLEANs** (`Livemode`) — filter with `= true` / `= 1`.
