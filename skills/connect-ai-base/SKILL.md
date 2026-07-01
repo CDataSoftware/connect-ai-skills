@@ -28,7 +28,9 @@ If the server is not connected:
 - **Do** suggest they enable it in their MCP settings, connected apps, or integration settings
 - **Do not** infer that Connect AI is connected based on MCP server references in system context or artifact configurations. Only confirm availability through tool_search results.
 
-If the user asks how to connect, direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
+**If you are running in Claude Code** and the user wants to set Connect AI up for the first time (no account, no MCP server registered, or asking how to connect), hand off to the onboarding skill: invoke `connect-ai-onboarding-claude-code`. It walks through sign-up, registering the MCP server, connecting a data source, and a first query. Once the user completes it and restarts, re-running the original request will find the tools via this Step 0 and proceed normally.
+
+On any other surface — or if the user only wants documentation — direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
 
 ## Connect AI MCP — Core Discovery Workflow
 
