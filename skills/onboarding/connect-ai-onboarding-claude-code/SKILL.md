@@ -1,10 +1,10 @@
 ---
 name: connect-ai-onboarding-claude-code
-description: Use this skill when an existing Claude Code user wants to connect Claude Code to CData Connect AI for the first time — signing up for a Connect AI account, authenticating Claude Code to the Connect AI MCP server (via a Personal Access Token by default, with browser OAuth as an alternative), connecting a data source, and running a first query. Trigger phrases include "set me up with Connect AI", "connect Claude Code to Connect AI", "onboard me to Connect AI", "how do I use Connect AI in Claude Code", "I don't have a Connect AI account yet". Skip the steps about installing Claude Code or creating a Claude Code account — this audience already uses Claude Code.
+description: Use this skill when an existing Claude Code user wants to connect Claude Code to CData Connect AI for the first time — signing up for a Connect AI account, authenticating Claude Code to the Connect AI MCP server (via a Personal Access Token by default, with browser OAuth as an alternative), connecting a data source, and running a first query. Trigger phrases include "set me up with Connect AI", "connect Claude Code to Connect AI", "onboard me to Connect AI", "how do I use Connect AI in Claude Code", "I don't have a Connect AI account yet", "continue my Connect AI setup". Skip the steps about installing Claude Code or creating a Claude Code account — this audience already uses Claude Code.
 license: MIT
 metadata:
   author: CData Software
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Claude Code Onboarding Skill — Connect Claude Code to CData Connect AI
@@ -93,24 +93,34 @@ Wire Claude Code to Connect AI now, before any data source exists — auth ident
 
 Either way, **copy the PAT immediately** from the dialog — the console will not show it again. Treat it like a password.
 
-**2. Run the registration command in your own terminal** (PowerShell, Windows Terminal, Git Bash, macOS Terminal, iTerm2, bash, zsh — anywhere `claude` is on PATH). Hand the user the command for their platform; it Base64-encodes the credential inline, so they never hand-encode and the PAT only ever exists in their local shell:
+**2. Run the registration command in your own terminal** (PowerShell, Windows Terminal, Git Bash, macOS Terminal, iTerm2, bash, zsh — anywhere `claude` is on PATH). Hand the user the command for their platform; it Base64-encodes the credential inline, so they never hand-encode it, and it never passes through this chat:
 
 - **Windows (PowerShell):**
   ```powershell
   $cred = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("you@example.com:YOUR_PAT"))
-  claude mcp add --transport http connectmcp https://mcp.cloud.cdata.com/mcp --header "Authorization: Basic $cred"
+  claude mcp add --scope user --transport http connectmcp https://mcp.cloud.cdata.com/mcp --header "Authorization: Basic $cred"
   ```
 - **macOS / Linux (bash/zsh):**
   ```bash
   CRED=$(printf '%s' 'you@example.com:YOUR_PAT' | base64 | tr -d '\n')
-  claude mcp add --transport http connectmcp https://mcp.cloud.cdata.com/mcp --header "Authorization: Basic $CRED"
+  claude mcp add --scope user --transport http connectmcp https://mcp.cloud.cdata.com/mcp --header "Authorization: Basic $CRED"
   ```
 
 Tell the user to replace `you@example.com:YOUR_PAT` with their own email and the PAT they just copied — keep the colon between them and keep the quotes.
 
-**3. Confirm and restart.** The command should print `Added http MCP server connectmcp`. Ask the user to confirm they saw that line. No `/mcp` authenticate step is needed on this path — the header carries the credential. Then tell them to **restart Claude Code** so the new tools load, and **re-invoke this skill** — Step 0 will route them to Step 3 (connect a data source).
+**On Windows, use the PowerShell block** — it's the supported path and PowerShell is always installed. If the user only has a cmd.exe window open, tell the user to start PowerShell (`powershell`) and run it there; there's no reliable cmd.exe equivalent for the encoding step.
+
+`--scope user` registers the server for the user's whole account, so it's available in every project/directory — not just the folder they happened to run the command in. Leave it in; without it the server is registered only for the current directory and won't load when they restart Claude Code elsewhere.
+
+**3. Confirm and restart.** The command should print `Added http MCP server connectmcp`. Ask the user to confirm they saw that line. No `/mcp` authenticate step is needed on this path — the header carries the credential. Then tell them to **restart Claude Code** so the new tools load, and — once restarted — come back and say **"continue my Connect AI setup"** to re-invoke this skill; Step 0 will route them to Step 3 (connect a data source).
 
 Because the user runs the command outside this session, Claude can't read its output — rely on their confirmation. If they hit an error, ask them to paste the **error message only**, never the command or credential.
+
+**Where the PAT ends up (and how to clean up).** Even though the PAT never touches this chat, it persists in two places on the user's machine:
+- **Shell history** — the command contains `email:PAT`. bash/zsh users with `HISTCONTROL=ignorespace` can prefix the command with a space, or delete the line afterward; PowerShell users can run `Clear-History` and remove the entry from `(Get-PSReadLineOption).HistorySavePath`.
+- **Claude Code's MCP config** — `--header` stores the `Authorization: Basic …` value in plaintext under the user-scope config. That's expected (it's replayed each session), but it means anyone who can read that file can recover the PAT.
+
+If the PAT is ever exposed, revoke it in **Settings → Personal Access Tokens** and re-register (see Troubleshooting).
 
 ### OAuth alternative (browser sign-in)
 
@@ -127,7 +137,7 @@ claude --version
 
 1. Register the server (no credential header — Connect AI will drive OAuth):
    ```bash
-   claude mcp add --transport http connectmcp https://mcp.cloud.cdata.com/mcp
+   claude mcp add --scope user --transport http connectmcp https://mcp.cloud.cdata.com/mcp
    ```
    Confirm the CLI prints `Added http MCP server connectmcp` or similar.
 
@@ -139,14 +149,14 @@ claude --version
 
 3. If authentication fails with **"Callback URL mismatch"** / `redirect_uri` not in the allowed list, Claude Code's localhost callback port isn't in the OAuth app's allowed list. Easiest fix: use the **PAT path** above. To stay on OAuth, re-add the server with `--callback-port <port>` set to a port whose `http://localhost:<port>/callback` is registered in the Connect AI OAuth app's Allowed Callback URLs (a Connect AI admin can confirm or add allowed ports).
 
-4. Because registering + authenticating requires a restart, the skill conversation ends here for this session. Tell the user that after they've restarted and signed in, they should **re-invoke this skill** — Step 0 will route them to Step 3 (connect a data source).
+4. Because registering + authenticating requires a restart, the skill conversation ends here for this session. Tell the user that after they've restarted and signed in, they should come back and say **"continue my Connect AI setup"** to re-invoke this skill; Step 0 will route them to Step 3 (connect a data source).
 
 ### "Can't reach the CLI" note
 
 The **PAT path always runs in the user's own terminal**, so it needs nothing from Claude here — the platform commands in the PAT path above are already the ready-to-run blocks. This note only matters for the **OAuth alternative**, where Claude would normally run the registration itself. If `claude --version` failed, hand the user the command to paste into any terminal where `claude` is on PATH (PowerShell, cmd, Windows Terminal, Git Bash, bash, zsh, macOS Terminal, iTerm2, etc.):
 
 ```
-claude mcp add --transport http connectmcp https://mcp.cloud.cdata.com/mcp
+claude mcp add --scope user --transport http connectmcp https://mcp.cloud.cdata.com/mcp
 ```
 then restart Claude Code and run `/mcp` → connectmcp → Authenticate. If sign-in returns "Callback URL mismatch," add `--callback-port <port>` for a port registered in the OAuth app, or use the PAT path.
 
@@ -175,7 +185,7 @@ Do not ask the user to type a verification query. Run the check yourself by call
 
 By this point the user has registered + authenticated (Step 2) and restarted, so the **connectmcp** server should already be loaded in the session. Just call `getCatalogs` and show the result.
 
-- If it's still not loaded (the user reached here without restarting after Step 2), tell them to **restart Claude Code**, finish auth if they haven't (on the OAuth alternative, complete `/mcp` → Authenticate), then re-invoke this skill at "Step 4 — verify."
+- If it's still not loaded (the user reached here without restarting after Step 2), tell them to **restart Claude Code**, finish auth if they haven't (on the OAuth alternative, complete `/mcp` → Authenticate), then come back and say **"continue my Connect AI setup"** to re-invoke this skill — it will resume at "Step 4 — verify."
 - When the check succeeds, show the catalogs as a compact table (catalog name, source, permissions) and explicitly state the connection is verified end-to-end.
 - If `getCatalogs` returns empty, auth works but no data sources are connected — route the user back to Step 3.
 - If `getCatalogs` fails with a 401 / auth error, follow the Troubleshooting section.
@@ -198,13 +208,15 @@ Then suggest one or two starter queries that match the catalogs the user actuall
 - HubSpot → *"How many MQLs did we generate last month, by source?"*
 - Snowflake / Postgres → *"Describe the `orders` table and give me row counts by month."*
 
+**Hand off to the base skill for querying.** From the user's first real data question onward, follow the `connect-ai-base` skill — it governs the required discovery workflow (`getInstructions` before any schema/table/column call), the fully-qualified `[Catalog].[Schema].[Table]` naming, and error recovery. If it isn't already loaded, load it before running the starter queries above, so the first query follows the discovery rules instead of guessing schema.
+
 End the skill there. Do not add another `Reply **next**` prompt — there's nothing after this.
 
 ---
 
 ## Troubleshooting
 
-- **401 / auth errors when listing catalogs (PAT path)** → re-check the Base64 string. Common mistakes: encoding `PAT:email` instead of `email:PAT`, including a trailing newline, or wrapping the PAT in quotes before encoding.
+- **401 / auth errors when listing catalogs (PAT path)** → re-check the Base64 string. Common mistakes: encoding `PAT:email` instead of `email:PAT`, or including a trailing newline. Note the outer quotes in the command blocks are correct — the shell strips them before encoding. The mistake to avoid is baking *literal* quote characters into the value (e.g. encoding `"email:PAT"` with the quotes as part of the string).
 - **PAT lost** → it cannot be recovered; revoke it in **Settings → Personal Access Tokens** and generate a new one (or re-run the **Integrations → Claude Code → Connect** flow), then re-run the Step 2 PAT path to re-register.
 - **Server registered but Claude doesn't call its tools** → restart the Claude Code session so the new MCP server is loaded.
 - **`claude mcp add` not found** → the user's `claude` CLI may be outdated. Have them run `claude --version` and update if needed. (Do *not* walk them through reinstalling unless they ask.)
