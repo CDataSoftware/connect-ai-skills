@@ -1,7 +1,7 @@
 ---
 name: connect-ai-base
 description: >
-   Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data. This includes: questions for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, Jira, SQL Server, Snowflake, etc.); requests to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "pull up recent orders"); the user naming a connector or data source; business-domain questions ("top customers," "open tickets," "headcount by dept," "pipeline by stage") when at least one Connect AI connection is available; or conversations already involving Connect AI tool calls. Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery, and SQL dialect guidance. Load connector-family (connect-ai-crm, connect-ai-hcm, connect-ai-erp) or connector-specific (connect-ai-salesforce) skills on top for deeper patterns.
+   Use when the user has CData Connect AI MCP available and is asking business questions that require querying live enterprise data. This includes: questions for live data from an enterprise system (Salesforce, Workday, NetSuite, HubSpot, Jira, SQL Server, Snowflake, etc.); requests to retrieve, look up, or explore data from a connected system, even without naming a specific platform (e.g. "show me my accounts," "pull up recent orders"); the user naming a connector or data source; business-domain questions ("top customers," "open tickets," "headcount by dept," "pipeline by stage") when at least one Connect AI connection is available; or conversations already involving Connect AI tool calls. Enforces the required discovery workflow (getInstructions before any schema/table/column call), covers query construction patterns, error recovery, and SQL dialect guidance. Load connector-specific (connect-ai-salesforce, connect-ai-jira, or connect-ai-googlesheets, etc) skills on top for deeper patterns.
 license: MIT
 metadata:
   author: CData Software
@@ -14,7 +14,7 @@ This skill governs how to use the CData Connect AI MCP server to answer business
 
 ## When NOT to use
 
-- The user uploaded a file (CSV, Excel, JSON) and wants analysis of that file — use the data-analysis skill instead
+- The user uploaded a file (CSV, Excel, JSON) and wants analysis of that file — use a separate data analysis skill instead
 - The user wants to configure connections, manage OAuth, or administer Connect AI — direct them to the CData admin UI
 - The user is asking about Connect AI's architecture, pricing, or strategy — this is a product conversation, not a query task
 
@@ -28,7 +28,9 @@ If the server is not connected:
 - **Do** suggest they enable it in their MCP settings, connected apps, or integration settings
 - **Do not** infer that Connect AI is connected based on MCP server references in system context or artifact configurations. Only confirm availability through tool_search results.
 
-If the user asks how to connect, direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
+**If you are running in Claude Code** and the user wants to set Connect AI up for the first time (no account, no MCP server registered, or asking how to connect), hand off to the onboarding skill: invoke `connect-ai-onboarding-claude-code`. It walks through sign-up, registering the MCP server, connecting a data source, and a first query. Once the user completes it and restarts, re-running the original request will find the tools via this Step 0 and proceed normally.
+
+On any other surface — or if the user only wants documentation — direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
 
 ## Connect AI MCP — Core Discovery Workflow
 
@@ -84,7 +86,7 @@ Once you have chosen Option 2, identify which discovery path applies by checking
    - If **yes** → follow that skill's instructions and proceed to step #4.
    - If **no** → call `getInstructions` before proceeding.
 
-3. **`getInstructions(driverName=<n>)`** — REQUIRED before any `getSchemas`, `getTables`, or `getColumns` call for a driver with no loaded skill. The payload contains driver-specific hints not in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, and column-naming idioms. Call once per driver per conversation and read the output carefully — it is the highest-leverage context available.
+3. **`getInstructions(driverName=<DriverName>)`** — REQUIRED before any `getSchemas`, `getTables`, or `getColumns` call for a driver with no loaded skill. The payload contains driver-specific hints not in the Agent's training data: quoting rules, SQL dialect quirks, required scope parameters, known-unsupported operations, and column-naming idioms. Call once per driver per conversation and read the output carefully — it is the highest-leverage context available.
 
 4. **`getSchemas` / `getTables` / `getColumns`** — discover structure. Do not guess table or column names, even for well-known systems (Salesforce, Workday, SQL Server). Tenants may have custom objects, renamed fields, disabled tables, or non-standard schemas. Call `getColumns` before any `queryData` that references specific columns for the first time.
 
@@ -180,16 +182,12 @@ If a query returns 0 rows on a table you expect to have data, or the data doesn'
 2. If the user didn't originally specify a connection and you selected one, this is especially important — your initial selection may have been wrong
 3. Do not adapt indefinitely within a connection that isn't producing the expected results
 
-## Connector-family and specific skills
+## Connector-specific skills
 
-When a driver has deep quirks, or when a pattern isn't covered by the discovery workflow and error-recovery guidance above, load the relevant sibling skill. These compose on top of this one:
+Individual connectors have their own skills that compose on top of this base skill. They are named `connect-ai-<connector>` (e.g. `connect-ai-salesforce`, `connect-ai-jira`) and each carries a `family:` tag grouping it by domain (`crm`, `accounting`, `hcm`, `ticketing`, `files`, `collaboration`, …).
 
-- **connect-ai-crm** — Salesforce, HubSpot, Dynamics 365, Pipedrive. Account/Contact/Opportunity patterns, pipeline stages, owner/team queries.
-- **connect-ai-hcm** — Workday, BambooHR, ADP, UKG. Worker/Position/Department triples, effective-dated records, org-hierarchy traversal.
-- **connect-ai-erp** — NetSuite, SAP, Oracle EBS, Microsoft Dynamics F&O. GL/AP/AR patterns, cost centers, fiscal calendar quirks.
-- **connect-ai-ticketing** — Zendesk, ServiceNow, Jira Service Management. Status vocabularies, SLA computations, assignee hierarchies.
-- **connect-ai-analytics** — Snowflake, BigQuery, Databricks, Redshift. Warehouse-specific SQL dialect and performance hints.
-- **connect-ai-files** — S3, Box, OneDrive, Dropbox. File/folder traversal, content-type quirks, and storage-provider auth scopes.
-- **connect-ai-<specific-connector>** — connector-level quirks (e.g. Workday WQL idioms, Salesforce custom-object naming, NetSuite saved-search tables).
+Composition pattern:
+- If a connector-specific skill is available for the data source, load it — it carries quirks and query patterns beyond this base workflow. Load the most specific skill available; it layers on top of this one.
+- If no connector-specific skill exists, this base skill plus `getInstructions` (which supplies connector-specific guidance at runtime) is sufficient.
 
-When composing a response, load the most specific skill available and fall back to the family, then this base skill.
+This base skill does not maintain a catalog of connector skills — each connector skill declares its own trigger conditions, so it surfaces on its own when relevant.
