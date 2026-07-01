@@ -182,16 +182,10 @@ If a query returns 0 rows on a table you expect to have data, or the data doesn'
 
 ## Connector-specific skills
 
-When a connector has deep quirks not covered by the discovery workflow and error-recovery guidance above, load its connector-specific skill. These compose on top of this base skill — load the most specific one available; if none exists for the connector, this base skill is sufficient.
+Individual connectors have their own skills that compose on top of this base skill. They are named `connect-ai-<connector>` (e.g. `connect-ai-salesforce`, `connect-ai-jira`) and each carries a `family:` tag grouping it by domain (`crm`, `accounting`, `hcm`, `ticketing`, `files`, `collaboration`, …).
 
-Available connector skills (grouped by domain `family`, a routing tag — there is no separate "family" skill to load):
+Composition pattern:
+- If a connector-specific skill is available for the data source, load it — it carries quirks and query patterns beyond this base workflow. Load the most specific skill available; it layers on top of this one.
+- If no connector-specific skill exists, this base skill plus `getInstructions` (which supplies connector-specific guidance at runtime) is sufficient.
 
-- **crm** — connect-ai-salesforce, connect-ai-bullhorncrm
-- **accounting** — connect-ai-quickbooksonline, connect-ai-sageintacct
-- **hcm** — connect-ai-workday
-- **ticketing** — connect-ai-jira
-- **files** — connect-ai-googledrive
-- **collaboration** — connect-ai-confluence, connect-ai-airtable, connect-ai-docusign,
-  connect-ai-googlecalendar, connect-ai-googlesheets
-
-For any connector without a listed skill, follow the universal discovery workflow above; `getInstructions` supplies the connector-specific guidance at runtime.
+This base skill does not maintain a catalog of connector skills — each connector skill declares its own trigger conditions, so it surfaces on its own when relevant.
