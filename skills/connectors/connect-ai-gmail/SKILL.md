@@ -26,6 +26,8 @@ This skill replaces `getInstructions` for the Gmail driver. Do not call `getInst
 
 Gmail is a single-schema driver. The schema name is `REST`. (IMAP is a legacy schema that can be selected through connection properties; the REST schema is the default and is assumed throughout this skill.)
 
+The middle segment of every three-part name must be `REST` — always `[Gmail_DB].[REST]`. Note that the cai-toolkit `gmail_db_*` tool descriptions may advertise the schema as "Gmail", but the live schema is `REST`; using `[Gmail]` fails with an invalid-schema error.
+
 Three-part names take the form:
 
 ```sql
@@ -89,7 +91,7 @@ Because of this, a full `getTables` listing is long and volatile — it grows an
 - `HistoryId`, `Headers` — History record ID and full header list.
 - `RawMessage` — Full RFC 2822, base64url-encoded message; only returned when `MessageFormat=raw`.
 - `SearchQuery` (filter-only pseudo-column) — Native Gmail search string; evaluated server-side and takes precedence over other SQL criteria.
-- `LabelsFilter` (pseudo-column) — Comma-separated label IDs to restrict results (e.g. `'UNREAD,IMPORTANT'`).
+- `LabelsFilter` (pseudo-column) — Comma-separated label IDs to restrict results. Multiple IDs are ANDed — results are messages carrying **all** listed labels (e.g. `'UNREAD,IMPORTANT'` returns messages that are both unread AND important).
 - `IncludeSpamTrash` (pseudo-column) — Set to `true` to include SPAM and TRASH messages, which are excluded by default.
 - `MessageFormat` (pseudo-column) — `minimal`, `full`, `raw`, or `metadata` (default `full`).
 
@@ -105,9 +107,9 @@ Because of this, a full `getTables` listing is long and volatile — it grows an
 - `Id` — Attachment identifier within the message (returned as a sequential index, e.g. `1`, `2`, `3`).
 - `MessageId` — ID of the containing message. **Required as a filter** — the table cannot be queried without it.
 - `Filename` — Attachment file name.
-- `Size` — Size in bytes.
-- `Data` — Base64-encoded attachment content.
-- `IncludeAttachmentData` (pseudo-column) — Whether to include `Data` (default `true`); set to `false` to fetch metadata only.
+- `Size` — Size in bytes. Not populated in metadata-only mode (`IncludeAttachmentData = false`); returned only on a full data pull or via `DownloadAttachments`.
+- `Data` — Attachment content encoded as **URL-safe base64** (uses `-` and `_` instead of `+` and `/`). Decode with a URL-safe base64 decoder (e.g. Python `base64.urlsafe_b64decode`), not a standard base64 decoder.
+- `IncludeAttachmentData` (pseudo-column) — Whether to include `Data` (default `true`); set to `false` to fetch metadata only. In metadata-only mode `Size` comes back empty — a full data pull (or `DownloadAttachments`) is required to get `Size`.
 
 ### MessageLabels
 - `Id` — Message ID (key).
@@ -126,11 +128,10 @@ LIMIT 10
 ```
 
 ### Recent unread messages
-Gmail has no `isRead` column — read state is a label — so query the `UNREAD` view (or `is:unread` in `SearchQuery`).
+Gmail has no `isRead` column — read state is a label — so query the `UNREAD` view (or `is:unread` in `SearchQuery`). The view returns newest-first natively, so `LIMIT 10` alone is enough — do not add `ORDER BY [Date]` here (sorting the full UNREAD set times out; see Gmail-Specific Conventions).
 ```sql
 SELECT [Subject], [From], [Date], [Snippet]
 FROM [Gmail_DB].[REST].[UNREAD]
-ORDER BY [Date] DESC
 LIMIT 10
 ```
 
@@ -151,12 +152,11 @@ WHERE [Id] = 'INBOX'
 ```
 
 ### Restrict messages to specific labels
-Use `LabelsFilter` with a comma-separated list of label IDs.
+Use `LabelsFilter` with a comma-separated list of label IDs. The list is ANDed — this returns messages carrying **all** listed labels (below: messages that are both unread AND important).
 ```sql
 SELECT [Subject], [From], [Date]
 FROM [Gmail_DB].[REST].[Messages]
 WHERE [LabelsFilter] = 'UNREAD,IMPORTANT'
-ORDER BY [Date] DESC
 ```
 
 ### Retrieve attachment content
@@ -166,9 +166,9 @@ SELECT [Id], [Filename], [Size], [Data]
 FROM [Gmail_DB].[REST].[Attachments]
 WHERE [MessageId] = '19f1c11dc1070717'
 ```
-To list attachment metadata without pulling the (potentially large) `Data` payload, set `IncludeAttachmentData` to `false`:
+To list attachment metadata without pulling the (potentially large) `Data` payload, set `IncludeAttachmentData` to `false`. Note `Size` is not populated in this mode, so omit it:
 ```sql
-SELECT [Id], [Filename], [Size]
+SELECT [Id], [Filename]
 FROM [Gmail_DB].[REST].[Attachments]
 WHERE [MessageId] = '19f1c11dc1070717' AND [IncludeAttachmentData] = false
 ```
@@ -208,14 +208,14 @@ EXEC [Gmail_DB].[REST].[UpdateMessageLabels] MessageIds = '19f1c11dc1070717', La
 Move a message to or from the trash by message ID. Confirm before trashing.
 
 ### DownloadAttachments
-Downloads all attachments of a single message. Parameters: `MessageId` (required), and optional `AttachmentId` and `FileStream`. **Do not pass `FileStream`** — it is an output-stream object that the Connect AI interface cannot supply. Call it with just `MessageId` (optionally `AttachmentId` for a single attachment); it then returns a row per attachment with columns `Success`, `MessageId`, `AttachmentId`, `Size`, `Data` (base64), and `Filename`.
+Downloads all attachments of a single message. Parameters: `MessageId` (required), and optional `AttachmentId` and `FileStream`. **Do not pass `FileStream`** — it is an output-stream object that the Connect AI interface cannot supply (and there is no `DownloadLocation` disk-path parameter on this driver). Calling with just `MessageId` (optionally `AttachmentId` for a single attachment) **does** return a row per attachment with columns `Success`, `MessageId`, `AttachmentId`, `Size`, `Data` (base64), and `Filename` — validated over both the generic Connect AI MCP and the cai-toolkit surface.
 ```json
 {
   "procedure": "DownloadAttachments",
   "parameters": { "MessageId": "19f1c11dc1070717" }
 }
 ```
-This is the procedure equivalent of querying the `Attachments` table. Use whichever fits: `DownloadAttachments` returns every attachment for a message in one call; the `Attachments` table lets you select individual columns and skip the payload via `IncludeAttachmentData = false`. (Note: the source's `DownloadLocation` disk-path parameter does not exist on this driver.)
+This is the procedure equivalent of querying the `Attachments` table — the two are interchangeable, not one a workaround for the other. Use whichever fits: `DownloadAttachments` returns every attachment for a message in one call; the `Attachments` table lets you select individual columns and skip the payload via `IncludeAttachmentData = false`.
 
 ### Settings and account procedures
 `GetUserProfile`, `GetAutoForwarding` / `UpdateAutoForwarding`, `GetVacations` / `UpdateVacations`, `GetLanguage` / `UpdateLanguage`, `GetImap` / `UpdateImap`, `GetPop` / `UpdatePop`, `ImportMessage`, `StartNotifications` / `StopNotifications`, and the send-as S/MIME procedures (`SetDefaultSendAsAliasSmimeConfig`, `VerifySendAs`). Use these for account configuration and mailbox administration.
@@ -230,10 +230,14 @@ Gmail supports writes through both stored procedures (sending, replying, labelin
 
 Write access is governed by the Connect AI catalog permissions for the Gmail connection. Check the `PERMISSIONS` column from `getCatalogs`: a connection must show `Insert` / `Update` / `Delete` / `Execute` (not just `Select`) for the corresponding operation to succeed. If a write is rejected, the connection is read-only for the current user and access must be granted in Connect AI.
 
+**No DELETE path over MCP.** The Connect AI MCP surface exposes no delete operation (there is no `execute_delete`), even when the connection has `Delete` permission — so a row cannot be removed with `DELETE FROM ...` over MCP. To discard a draft, call the `TrashMessage` procedure with the draft's `MessageId` (from the `Draft` table's `MessageId` column).
+
 ## Gmail-Specific Conventions
 
 - **Every label is a view.** The table list contains one view per Gmail label (system and user), so it is long and changes with the account. Discover labels via the `Labels` table; filter via system views (`UNREAD`, `INBOX`, …) or the `LabelsFilter` pseudo-column rather than trusting the raw table list.
 - **`SearchQuery` beats SQL predicates.** It runs server-side and takes precedence over other `WHERE` criteria. Use Gmail operators (`from:`, `to:`, `subject:`, `has:attachment`, `after:`, `before:`, `newer_than:`, `is:unread`, `label:`) for the fastest, most accurate filtering.
+- **`has:attachment` over-matches.** It also matches delivery-status-notification and `message/rfc822` messages whose `AttachmentIds` is empty (no downloadable file parts). Treat an empty `AttachmentIds` as "no files to download" even when `has:attachment` matched the message.
+- **Avoid `ORDER BY [Date]` on large or unfiltered sets.** Sorting a big result set (e.g. all `UNREAD`, ~20k rows) times out and drops the MCP connection. It is fine over a `SearchQuery`-filtered small set. Prefer narrowing with `SearchQuery` before sorting, or rely on Gmail's native newest-first order.
 - **No read/unread column.** Read state is the `UNREAD` label. Query the `UNREAD` view or `is:unread`; mark read by removing the `UNREAD` label via `UpdateMessageLabels`.
 - **Single-fetch-only columns.** `AttachmentIds` on Messages and the count columns on Labels populate only when you query one row by its `Id`, not in bulk list queries.
 - **Attachments require a `MessageId` filter** and return content as base64 in `Data`. Set `IncludeAttachmentData = false` to skip the payload when you only need metadata.
