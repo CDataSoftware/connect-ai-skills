@@ -189,16 +189,68 @@ JSON form:
 Optional parameters: `@CcRecipients`, `@BccRecipients`, `@ContentType` (`HTML`/`Text`), `@Id` (send an existing draft/message by ID), `@SenderEmail` / `@FromEmail` (send-on-behalf), `@UserId` (impersonated mailbox), and attachment parameters (`@Attachments` as `filename,base64content; …`, or `@FileName` + `@ContentBytes`). See the attachment note below.
 
 ### ForwardMail / ReplyToMessage
-`ForwardMail` forwards an existing message to new recipients; `ReplyToMessage` replies while preserving the thread. Both take the source message `Id` plus recipients / comment. Confirm before sending.
+`ForwardMail` forwards an existing message to new recipients; `ReplyToMessage` replies while preserving the thread. Both are send actions — first query the `Messages` table to get the target message's `id` (locate-then-send), then **confirm with the user before sending**.
+
+`ForwardMail` parameters:
+- `MessageId` (required) — the `id` of the message to forward (from the `Messages` table).
+- `ToRecipients` (required) — semicolon-separated recipient addresses (e.g. `user1@example.com; user2@example.com`).
+- `Comment` — optional text added above the forwarded content.
+- `UserId` — the acting / impersonated mailbox.
+
+```sql
+EXEC [Exchange_MSGraph].[MSGraph].[ForwardMail]
+  MessageId = 'AAMkAD...=',
+  ToRecipients = 'user1@example.com; user2@example.com',
+  Comment = 'Forwarding for your review.'
+```
+
+`ReplyToMessage` parameters:
+- `MessageId` (required) — the `id` of the message being replied to (obtain it from the `Messages` table).
+- `Comment` — the reply body text.
+- `ToAll` — reply-all flag: reply to all original recipients (`true`) or the sender only (`false`).
+- `UserId` — the acting / impersonated mailbox.
+
+```sql
+EXEC [Exchange_MSGraph].[MSGraph].[ReplyToMessage]
+  MessageId = 'AAMkAD...=',
+  Comment = 'Thanks — confirming receipt.'
+```
+JSON form:
+```json
+{
+  "procedure": "ReplyToMessage",
+  "parameters": {
+    "@MessageId": "AAMkAD...=",
+    "@Comment": "Thanks — confirming receipt.",
+    "@ToAll": "false"
+  }
+}
+```
 
 ### RespondToEvent
-Accepts, declines, or tentatively accepts a calendar invitation. Supply the event `Id` and the response type. Confirm before responding.
+Responds to a calendar invitation. Locate the event in `Events` / `CalendarView` first, then confirm before responding. Parameters:
+- `EventId` (required) — the `id` of the event being responded to.
+- `ResponseType` (required) — the response to send. Valid values: `Accept`, `Decline`.
+- `SendResponse` — whether to send a response to the organizer (`true` / `false`; default `true`).
+- `Comment` — optional note included in the response, visible to the organizer.
+- `UserId` — the acting / impersonated mailbox.
+
+```sql
+EXEC [Exchange_MSGraph].[MSGraph].[RespondToEvent]
+  EventId = 'AAMkAD...=',
+  ResponseType = 'Accept'
+```
 
 ### MoveMail
-Moves a message to another folder — supply the message `Id` and the destination folder `Id` (from `MailFolders`).
+Moves a message to another folder. Parameters:
+- `MessageId` (required) — the `id` of the message to move (from `Messages`).
+- `DestinationId` (required) — the `id` of the destination folder (from `MailFolders`).
+- `UserId` — the acting / impersonated mailbox.
 
 ### DismissEventReminder / SnoozeEventReminder
-Dismiss or snooze an event's reminder by event `Id` (`SnoozeEventReminder` also takes a new reminder time).
+Dismiss or snooze a calendar event's reminder.
+- `DismissEventReminder` — parameters: `EventId` (required), `UserId` (optional).
+- `SnoozeEventReminder` — parameters: `EventId` (required), `DateTime` (required — the new reminder time), `TimeZone` (required — the time zone for `DateTime`), `UserId` (optional).
 
 ### DownloadAttachments
 Downloads attachments for a message or event. **Cloud-compatible** — returns file content as base64 without any disk/stream parameter:
