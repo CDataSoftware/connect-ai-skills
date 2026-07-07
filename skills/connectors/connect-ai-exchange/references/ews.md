@@ -28,7 +28,7 @@ EWS uses `PascalCase` columns, flattening nested elements with an underscore:
 
 1. **Pick the folder table.** Mail is exposed per-folder: `Inbox`, `SentItems`, `Drafts`, `DeletedItems`, `JunkEmail`, `Outbox`. Choose the folder that matches the request rather than a single "all mail" table.
 2. **Inspect columns with `getColumns`** on the target — item tables are wide (they inherit a large shared item base plus type-specific columns).
-3. **Add a date filter** on `DateTimeReceived` (mail), `Start` (calendar), or `DueDate` (tasks), using explicit date literals. **On `Calendar`, only an open-ended lower bound works** — `Start >= '<date>'`. An upper bound or two-sided range returns zero rows (see the Calendar note below); apply any upper bound client-side.
+3. **Add a date filter** on `DateTimeReceived` (mail), `Start` (calendar), or `DueDate` (tasks), using explicit date literals. **On `Calendar`, use an open-ended lower bound `Start >= '<date>'` that is CLOSE to the window of interest** — an upper bound / two-sided range, *and* a far-past lower bound (e.g. `Start >= '2020-01-01'`), both return zero rows regardless of `ORDER BY`. See the Calendar note below; apply any upper bound client-side, and never read a zero-row result on a wide bound as "no data."
 4. **For attendees or attachments, fetch the item first** to get its `ItemId` / attachment ids, then query the attendee tables or call `GetAttachment` (below).
 5. **To read another user's mailbox**, use `SharedMailboxEmail` or the `ImpersonationUser` / `ImpersonationType` columns (below).
 
@@ -74,7 +74,7 @@ EWS uses `PascalCase` columns, flattening nested elements with an underscore:
 ### Calendar
 - `ItemId` — Event ID (primary key).
 - `Subject` — Event title; `Body` — description.
-- `Start` / `End` — Start/end timestamps (filter and sort on `Start`); `OriginalStart` for series. **`Start` supports only an open-ended lower bound**: filter with `Start >= '<date>'` only. An upper bound (`Start <= '<date>'`) or a two-sided range returns **zero rows** — the `Calendar` table maps to the EWS `FindItem` operation, which pages forward from a start point, not the bounded `CalendarView` operation. To scope an end date, add `ORDER BY [Start] ASC` with a `LIMIT` and drop rows past the end date client-side.
+- `Start` / `End` — Start/end timestamps (filter and sort on `Start`); `OriginalStart` for series. **`Start` supports only an open-ended lower bound, and that bound must be close to the window you want.** Filter with `Start >= '<date>'` only — an upper bound (`Start <= '<date>'`) or a two-sided range returns **zero rows**. The `Calendar` table maps to the EWS `FindItem` operation, which pages forward from the `Start` bound; a bound set far in the past (e.g. `Start >= '2020-01-01'`) exhausts the row limit before it reaches recent events and returns **zero rows regardless of `ORDER BY` direction** (recurring series make this worse). Set the lower bound just before the target window (e.g. ~1 month before), and to scope an end date add `ORDER BY [Start] ASC` with a `LIMIT` and drop rows past the end date client-side. A zero-row result from a wide or far-past bound does **not** mean the calendar is empty — narrow the bound toward the target (or drop the date filter and use a `Subject` filter) before concluding there is no data.
 - `IsAllDayEvent` — All-day flag; `Duration`; `TimeZone`.
 - `Location` — Location text; `When` — human-readable time description.
 - `OrganizerName` / `OrganizerEmailAddress` — Organizer.
@@ -125,13 +125,27 @@ LIMIT 20
 ```
 
 ### Upcoming calendar events
-Use an open-ended lower bound only — `Start >= '<date>'` with `ORDER BY [Start] ASC` and a `LIMIT`. Do not add an upper bound on `Start` (it returns zero rows — see the Calendar note under Important Columns); trim to an end date client-side.
+Use an open-ended lower bound only — `Start >= '<date>'` with `ORDER BY [Start] ASC` and a `LIMIT`. Set the bound close to the window you care about; do not add an upper bound on `Start`, and do not use a far-past bound — both return zero rows (see the Calendar note under Important Columns). Trim to an end date client-side.
 ```sql
 SELECT [Subject], [Start], [End], [Location], [OrganizerName], [LegacyFreeBusyStatus]
 FROM [Exchange_EWS].[EWS].[Calendar]
-WHERE [Start] >= '2025-01-01'
+WHERE [Start] >= '2026-06-01'
 ORDER BY [Start] ASC
 LIMIT 10
+```
+
+### Find a known past meeting
+To locate a specific event, filter by `Subject` with **no** date bound (often simpler than guessing a window), or pair a `Subject` filter with a lower bound set just before the event. Do not use a far-past `Start` bound (e.g. `Start >= '2020-01-01'`) — it returns zero rows even when the event exists.
+```sql
+-- Subject filter, no date bound
+SELECT [Subject], [Start], [OrganizerName]
+FROM [Exchange_EWS].[EWS].[Calendar]
+WHERE [Subject] LIKE '%Priority Sync%'
+
+-- Or a Subject filter with a near-target lower bound (event on 2026-07-01)
+SELECT [Subject], [Start], [OrganizerName]
+FROM [Exchange_EWS].[EWS].[Calendar]
+WHERE [Start] >= '2026-06-01' AND [Subject] LIKE '%Priority Sync%'
 ```
 
 ### Attendees of a specific event
@@ -283,7 +297,7 @@ Write access is governed by the Connect AI catalog permissions for the Exchange 
 - **Mail is per-folder.** There is no single "all messages" table — pick `Inbox`, `SentItems`, `Drafts`, `DeletedItems`, `JunkEmail`, or `Outbox` to match the request.
 - **`ItemId` is the primary key**, not `id`; every item table carries the same large shared item base plus type-specific columns.
 - **Recipients are parallel delimited columns on read** (`ToRecipients_Names` / `ToRecipients_EmailAddresses`), not a JSON array; `SendMail` recipient parameters are comma-separated. **On INSERT (e.g. `Drafts`) the recipient columns are singular** (`ToRecipients_EmailAddress` / `ToRecipients_Name`) — the plural read columns don't exist on `Drafts`. See Write Operations.
-- **`Calendar` filters take an open-ended lower bound only** — `Start >= '<date>'`. An upper bound or two-sided range returns zero rows (`Calendar` maps to EWS `FindItem`); order by `Start` and trim the end client-side.
+- **`Calendar` filters take an open-ended lower bound only, set close to the target window** — `Start >= '<date>'`. An upper bound, a two-sided range, *and* a far-past bound (e.g. `Start >= '2020-01-01'`) all return zero rows (`Calendar` maps to EWS `FindItem`, which pages forward from the bound). Order by `Start`, trim the end client-side, and treat a zero-row result on a wide bound as "narrow the bound or filter by `Subject`," not "the calendar is empty."
 - **Contacts hold three fixed email slots** (`EmailAddress1`–`3`), unlike MSGraph's `emailAddresses` JSON array.
 - **Structured recipient columns are blank in bulk reads.** `ToRecipients_Names` / `ToRecipients_EmailAddresses` (and Cc/Bcc) populate only on a single-item fetch by `ItemId` (`GetItem`) — this is expected EWS behavior, not missing data. When listing, read `DisplayTo` / `DisplayCc` (populated in bulk), or re-fetch the row by `ItemId` for the parsed name + SMTP columns. Same single-fetch rule as the `Attachments` column.
 - **Attendee and attachment access is two-step**: fetch the item's `ItemId` (and its `Attachments` XML for attachment ids), then query `Calendar_RequiredAttendees` / `Calendar_OptionalAttendees` or call `GetAttachment`.
