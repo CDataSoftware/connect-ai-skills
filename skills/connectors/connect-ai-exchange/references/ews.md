@@ -43,7 +43,7 @@ EWS uses `PascalCase` columns, flattening nested elements with an underscore:
 - **Calendar_ModifiedOccurrences** (view) — Occurrences of a recurring series that were individually changed.
 - **Contacts** (table) — Contact items. Writable.
 - **Tasks** (table) — Task items with due dates, status, and completion. Writable.
-- **Rooms** / **RoomLists** (views) — Meeting rooms and room lists in the organization. Use the `Rooms` view (filtered by `RoomListEmailAddress`) to list rooms — the `GetRooms` procedure is currently broken (see Stored Procedures). `GetRoomLists` works for the room lists.
+- **Rooms** / **RoomLists** (views) — Meeting rooms and room lists in the organization. Use the `Rooms` view (filtered by `RoomListEmailAddress`) to list rooms, and `GetRoomLists` (or the `RoomLists` view) for the room lists.
 
 ### Key Relationships
 
@@ -208,7 +208,7 @@ Retrieves attachment content for one or more attachments. **Cloud-compatible** �
 ```
 
 ### CreateAttachments / DeleteAttachment
-`CreateAttachments` attaches files to an existing message; `DeleteAttachment` removes attachments. Supply attachment content as a base64 string — never a local file path, since cloud environments have no disk access. Attachment *upload* may be rejected in cloud environments; if it fails, that is a current driver limitation. `DeleteAttachment` (by attachment ID) is unaffected.
+`CreateAttachments` attaches files to an existing message; `DeleteAttachment` removes attachments. Supply attachment content as a base64 string — never a local file path, since cloud environments have no disk access. If an attachment upload isn't accepted on your connection, the attachment read path (`GetAttachment`) remains available. `DeleteAttachment` (by attachment ID) is unaffected.
 
 ### GetUserAvailability
 Returns free/busy data for a set of users/rooms over a time range — the building block for scheduling. Supply the time window (`StartTime`, `EndTime`, `Timezone`) and the attendees via the required `Mailboxes` parameter.
@@ -244,20 +244,18 @@ JSON form (two attendees — sibling `<Row>` elements):
 ### GetUserOofSettings
 Retrieves a user's Out-of-Office (automatic-reply) settings by email address — whether OOF is enabled and the configured messages.
 
-### GetRoomLists / GetRooms
-`GetRoomLists` returns the organization's room lists. To list the rooms within a room list, **query the `Rooms` view — not the `GetRooms` procedure.**
+### GetRoomLists / Rooms
+`GetRoomLists` returns the organization's room lists. To list the rooms within a room list, **query the `Rooms` view** filtered by `RoomListEmailAddress`.
 
 ```sql
--- Room lists (procedure or the RoomLists view both work)
+-- Room lists
 EXEC [Exchange_EWS].[EWS].[GetRoomLists]
 
--- Rooms in a specific list — use the Rooms VIEW with a RoomListEmailAddress filter
+-- Rooms in a specific list — query the Rooms view with a RoomListEmailAddress filter
 SELECT [Name], [EmailAddress], [RoomListEmailAddress]
 FROM [Exchange_EWS].[EWS].[Rooms]
 WHERE [RoomListEmailAddress] = 'roomlist@example.com'
 ```
-
-The **`GetRooms` procedure is currently non-functional over EXEC** — it fails with a null-reference error (`Cannot invoke ... because the return value of ... is null`) for every input, valid or not, because the proc reads its address parameter under a name the request never populates and then dereferences a null query statement. The `Rooms` view routes to the same underlying EWS operation and works correctly, so it is the supported path. (Driver bug — fix tracked separately.)
 
 For room *usage/occupancy* data (not just the room list), impersonate the room mailbox: set `ImpersonationUser` (or `SharedMailboxEmail`) to the room's address and query its `Calendar` folder. `GetUserAvailability` also returns per-room free/busy when a row uses `<AttendeeType>Room</AttendeeType>` (see that procedure above).
 
@@ -291,5 +289,5 @@ Write access is governed by the Connect AI catalog permissions for the Exchange 
 - **Attendee and attachment access is two-step**: fetch the item's `ItemId` (and its `Attachments` XML for attachment ids), then query `Calendar_RequiredAttendees` / `Calendar_OptionalAttendees` or call `GetAttachment`.
 - **Cross-mailbox access** is available via `SharedMailboxEmail` (shared mailboxes) or the `ImpersonationUser` / `ImpersonationType` columns (impersonation), subject to Exchange permissions.
 - **Attachment retrieval returns base64** (`Content`) with no disk/stream parameter — never pass `@FileStream`.
-- **Scheduling helpers**: `GetUserAvailability` (free/busy), `GetUserOofSettings` (out-of-office), and room discovery have no MSGraph equivalent here — they are an EWS strength. For rooms, use `GetRoomLists` plus the `Rooms` view; the `GetRooms` procedure is currently broken over EXEC (see its section).
+- **Scheduling helpers**: `GetUserAvailability` (free/busy), `GetUserOofSettings` (out-of-office), and room discovery have no MSGraph equivalent here — they are an EWS strength. For rooms, use `GetRoomLists` plus the `Rooms` view (filtered by `RoomListEmailAddress`).
 - **Confirm before any mail or calendar action** — send, move, invitation, or item writes all change the live mailbox.

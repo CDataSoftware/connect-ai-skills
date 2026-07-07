@@ -274,7 +274,7 @@ Downloads attachments for a message or event. **Cloud-compatible** — returns f
 The `MessageAttachments` / `EventAttachments` views are the query equivalent for listing attachment metadata; use `DownloadAttachments` (or select the content column on those views) to retrieve the bytes.
 
 ### AddAttachments / DeleteAttachment
-`AddAttachments` attaches files to an existing message; `DeleteAttachment` removes one. Supply attachment content as a base64 string via `ContentBytes` — never a local file path, since cloud environments have no disk access. Attachment *upload* may be rejected in cloud environments; if it fails, that is a current driver limitation. `DeleteAttachment` (by attachment ID) is unaffected.
+`AddAttachments` attaches files to an existing message; `DeleteAttachment` removes one. Supply attachment content as a base64 string via `ContentBytes` — never a local file path, since cloud environments have no disk access. If an attachment upload isn't accepted on your connection, the attachment read/download paths (`MessageAttachments` / `EventAttachments` views, `DownloadAttachments`) remain available. `DeleteAttachment` (by attachment ID) is unaffected.
 
 ### GetAdminConsentURL / FetchAdditionalUserFields
 `GetAdminConsentURL` generates the tenant admin-consent OAuth URL (setup helper). `FetchAdditionalUserFields` retrieves extended directory attributes (T1–T3) for a user.
