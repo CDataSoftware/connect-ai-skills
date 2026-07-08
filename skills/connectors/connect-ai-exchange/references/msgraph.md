@@ -54,7 +54,7 @@ LIMIT 20
 
 - **Messages** (table) — Every mail item across the mailbox in one table (not per-folder). Subject, sender, recipients, body, read/attachment status, `parentFolderId` for the containing folder. The central table for most email requests. Writable.
 - **Events** (table) — Calendar events with organizer, attendees, recurrence, online-meeting details, response status. Writable — create/update/delete events here.
-- **CalendarView** (view, read-only) — A date-windowed, recurrence-expanded view of events. Use for "what's scheduled between two dates." Requires a `start_dateTime` range in practice; read-only.
+- **CalendarView** (view, read-only) — A recurrence-expanded view of events. By default it returns occurrences from the user's default calendar for the last 30 days; supply a `start_dateTime` (and optionally `end_dateTime`) filter to move or widen that window. Read-only.
 - **Calendars** / **CalendarGroups** (tables) — The user's calendars and calendar groups; `Events` rows carry a `calendarId`.
 - **Contacts** (table) — Personal contacts. Writable.
 - **MailFolders** (table) — Mailbox folders (`Inbox`, `SentItems`, custom folders); join `Messages.parentFolderId` to a folder `id`.
@@ -65,7 +65,7 @@ LIMIT 20
 
 ### CalendarView vs Events
 
-Both expose the same event columns. `Events` is the writable base table (one row per event / series master). `CalendarView` is a read-only projection that expands recurring series into individual dated occurrences within a requested window — better for calendar displays, but you cannot INSERT/UPDATE through it.
+Both expose the same event columns. `Events` is the writable base table (one row per event / series master). `CalendarView` is a read-only projection that expands recurring series into individual dated occurrences (defaulting to the last 30 days of the default calendar; supply a `start_dateTime` filter to move or widen the window) — better for calendar displays, but you cannot INSERT/UPDATE through it.
 
 ### Key Relationships
 
@@ -84,7 +84,7 @@ Both expose the same event columns. `Events` is the writable base table (one row
 - `sender_emailAddress_address` / `sender_emailAddress_name` — Actual sending mailbox (differs from `from_*` for send-on-behalf).
 - `receivedDateTime` / `sentDateTime` — Received / sent timestamps (use for date filters and sorting).
 - `isRead` — Boolean read flag (`0` = unread, `1` = read).
-- `hasAttachments` — Boolean attachment flag. See the `has:attachment` caveat under Conventions.
+- `hasAttachments` — Boolean attachment flag (`0` = none, `1` = has attachments).
 - `importance` — `low` / `normal` / `high`.
 - `bodyPreview` — Short body preview; `body_content` — full body; `body_contentType` — `html` / `text`.
 - `toRecipients` / `ccRecipients` / `bccRecipients` — JSON arrays of recipients.
