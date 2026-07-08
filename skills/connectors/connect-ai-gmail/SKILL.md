@@ -26,19 +26,17 @@ This skill replaces `getInstructions` for the Gmail driver. Do not call `getInst
 
 Gmail is a single-schema driver. The schema name is `REST`. (IMAP is a legacy schema that can be selected through connection properties; the REST schema is the default and is assumed throughout this skill.)
 
-The middle segment of every three-part name must be `REST` — always `[Gmail_DB].[REST]`. Note that the cai-toolkit `gmail_db_*` tool descriptions may advertise the schema as "Gmail", but the live schema is `REST`; using `[Gmail]` fails with an invalid-schema error.
-
 Three-part names take the form:
 
 ```sql
 SELECT [Subject], [From], [Date]
-FROM [Gmail_DB].[REST].[Messages]
+FROM [YourConnection].[REST].[Messages]
 WHERE [SearchQuery] = 'is:unread'
 ORDER BY [Date] DESC
 LIMIT 10
 ```
 
-Replace `Gmail_DB` with the actual Gmail connection (catalog) name from `getCatalogs`.
+Replace `YourConnection` with the actual Gmail connection (catalog) name from `getCatalogs`.
 
 ## Query Process
 
@@ -79,7 +77,7 @@ Because of this, a full `getTables` listing is long and volatile — it grows an
 
 ### Messages
 - `Id` — Unique message ID (primary key).
-- `Subject`, `From`, `To`, `CC`, `BCC` — Subject and addresses. (In `getColumns`, the `CC`/`BCC` descriptions are mislabeled by the driver as "the primary email address of the user"; they are in fact the CC and BCC recipients.)
+- `Subject`, `From`, `To`, `CC`, `BCC` — Subject and addresses.
 - `Content` — Full message body.
 - `Snippet` — Short preview of the body.
 - `Date` — Timestamp the email was sent.
@@ -91,7 +89,7 @@ Because of this, a full `getTables` listing is long and volatile — it grows an
 - `HistoryId`, `Headers` — History record ID and full header list.
 - `RawMessage` — Full RFC 2822, base64url-encoded message; only returned when `MessageFormat=raw`.
 - `SearchQuery` (filter-only pseudo-column) — Native Gmail search string; evaluated server-side and takes precedence over other SQL criteria.
-- `LabelsFilter` (pseudo-column) — Comma-separated label IDs to restrict results. Multiple IDs are ANDed — results are messages carrying **all** listed labels (e.g. `'UNREAD,IMPORTANT'` returns messages that are both unread AND important).
+- `LabelsFilter` (pseudo-column) — A comma-separated list of label IDs (just the list — there is no `AND` operator in the syntax). Results contain only messages carrying **all** listed labels (e.g. `'UNREAD,IMPORTANT'` returns messages that are both unread and important).
 - `IncludeSpamTrash` (pseudo-column) — Set to `true` to include SPAM and TRASH messages, which are excluded by default.
 - `MessageFormat` (pseudo-column) — `minimal`, `full`, `raw`, or `metadata` (default `full`).
 
@@ -121,7 +119,7 @@ Because of this, a full `getTables` listing is long and volatile — it grows an
 `SearchQuery` is the most efficient filter for Messages and takes precedence over other SQL criteria.
 ```sql
 SELECT [Subject], [From], [Date]
-FROM [Gmail_DB].[REST].[Messages]
+FROM [YourConnection].[REST].[Messages]
 WHERE [SearchQuery] = 'has:attachment from:google.com newer_than:30d'
 ORDER BY [Date] DESC
 LIMIT 10
@@ -131,7 +129,7 @@ LIMIT 10
 Gmail has no `isRead` column — read state is a label — so query the `UNREAD` view (or `is:unread` in `SearchQuery`). The view returns newest-first natively, so `LIMIT 10` alone is enough — do not add `ORDER BY [Date]` here (sorting the full UNREAD set times out; see Gmail-Specific Conventions).
 ```sql
 SELECT [Subject], [From], [Date], [Snippet]
-FROM [Gmail_DB].[REST].[UNREAD]
+FROM [YourConnection].[REST].[UNREAD]
 LIMIT 10
 ```
 
@@ -139,7 +137,7 @@ LIMIT 10
 Count columns are not populated when listing all labels.
 ```sql
 SELECT [Id], [Name], [Type]
-FROM [Gmail_DB].[REST].[Labels]
+FROM [YourConnection].[REST].[Labels]
 ORDER BY [Name]
 ```
 
@@ -147,15 +145,15 @@ ORDER BY [Name]
 Filter to a single label by `Id` to populate the count columns.
 ```sql
 SELECT [Id], [Name], [MessagesTotal], [MessagesUnread], [ThreadsTotal]
-FROM [Gmail_DB].[REST].[Labels]
+FROM [YourConnection].[REST].[Labels]
 WHERE [Id] = 'INBOX'
 ```
 
 ### Restrict messages to specific labels
-Use `LabelsFilter` with a comma-separated list of label IDs. The list is ANDed — this returns messages carrying **all** listed labels (below: messages that are both unread AND important).
+Use `LabelsFilter` with a comma-separated list of label IDs — just the list, no `AND` operator in the syntax. Results contain only messages carrying **all** listed labels (below: messages that are both unread and important).
 ```sql
 SELECT [Subject], [From], [Date]
-FROM [Gmail_DB].[REST].[Messages]
+FROM [YourConnection].[REST].[Messages]
 WHERE [LabelsFilter] = 'UNREAD,IMPORTANT'
 ```
 
@@ -163,13 +161,13 @@ WHERE [LabelsFilter] = 'UNREAD,IMPORTANT'
 Query the `Attachments` table filtered by `MessageId`. `Data` is returned as base64. (The `DownloadAttachments` procedure returns the same content — see Stored Procedures.)
 ```sql
 SELECT [Id], [Filename], [Size], [Data]
-FROM [Gmail_DB].[REST].[Attachments]
+FROM [YourConnection].[REST].[Attachments]
 WHERE [MessageId] = '19f1c11dc1070717'
 ```
 To list attachment metadata without pulling the (potentially large) `Data` payload, set `IncludeAttachmentData` to `false`. Note `Size` is not populated in this mode, so omit it:
 ```sql
 SELECT [Id], [Filename]
-FROM [Gmail_DB].[REST].[Attachments]
+FROM [YourConnection].[REST].[Attachments]
 WHERE [MessageId] = '19f1c11dc1070717' AND [IncludeAttachmentData] = false
 ```
 
@@ -178,7 +176,7 @@ WHERE [MessageId] = '19f1c11dc1070717' AND [IncludeAttachmentData] = false
 ### SendMailMessage
 Sends an email. Parameters: `To`, `Subject`, `Content` (body), and optional `From`, `CC`, `BCC`, `Attachments` (a temp-table name or JSON aggregate of attachment content). **Always confirm with the user before sending.**
 ```sql
-EXEC [Gmail_DB].[REST].[SendMailMessage] To = 'recipient@example.com', Subject = 'Status update', Content = 'The report is attached.'
+EXEC [YourConnection].[REST].[SendMailMessage] To = 'recipient@example.com', Subject = 'Status update', Content = 'The report is attached.'
 ```
 JSON form:
 ```json
@@ -201,14 +199,14 @@ Sends an existing draft to the recipients in its To/Cc/Bcc headers. Supply the d
 ### UpdateMessageLabels
 Adds or removes labels on one or more messages (mark read/unread, archive, star, etc.). Parameters: `MessageIds` (up to 1000, comma-separated), `LabelsToAdd`, `LabelsToRemove` (label IDs, up to 100 each). Marking a message read means removing the `UNREAD` label.
 ```sql
-EXEC [Gmail_DB].[REST].[UpdateMessageLabels] MessageIds = '19f1c11dc1070717', LabelsToRemove = 'UNREAD'
+EXEC [YourConnection].[REST].[UpdateMessageLabels] MessageIds = '19f1c11dc1070717', LabelsToRemove = 'UNREAD'
 ```
 
 ### TrashMessage / UntrashMessage
 Move a message to or from the trash by message ID. Confirm before trashing.
 
 ### DownloadAttachments
-Downloads all attachments of a single message. Parameters: `MessageId` (required), and optional `AttachmentId` and `FileStream`. **Do not pass `FileStream`** — it is an output-stream object that the Connect AI interface cannot supply (and there is no `DownloadLocation` disk-path parameter on this driver). Calling with just `MessageId` (optionally `AttachmentId` for a single attachment) **does** return a row per attachment with columns `Success`, `MessageId`, `AttachmentId`, `Size`, `Data` (base64), and `Filename` — validated over both the generic Connect AI MCP and the cai-toolkit surface.
+Downloads all attachments of a single message. Parameters: `MessageId` (required), and optional `AttachmentId` and `FileStream`. **Do not pass `FileStream`** — it is an output-stream object that the Connect AI interface cannot supply (and there is no `DownloadLocation` disk-path parameter on this driver). Calling with just `MessageId` (optionally `AttachmentId` for a single attachment) **does** return a row per attachment with columns `Success`, `MessageId`, `AttachmentId`, `Size`, `Data` (base64), and `Filename`.
 ```json
 {
   "procedure": "DownloadAttachments",
@@ -242,5 +240,4 @@ Write access is governed by the Connect AI catalog permissions for the Gmail con
 - **Single-fetch-only columns.** `AttachmentIds` on Messages and the count columns on Labels populate only when you query one row by its `Id`, not in bulk list queries.
 - **Attachments require a `MessageId` filter** and return content as base64 in `Data`. Set `IncludeAttachmentData = false` to skip the payload when you only need metadata.
 - **SPAM and TRASH are excluded by default.** Set `IncludeSpamTrash = true` to include them.
-- **`CC`/`BCC` column descriptions are mislabeled** by the driver as "the primary email address of the user"; they are the CC and BCC recipients.
 - **Confirm before any mail action** — sending, replying, trashing, or relabeling changes the user's live mailbox.
