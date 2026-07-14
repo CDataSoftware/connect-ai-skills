@@ -209,7 +209,7 @@ A sales invoice created from an order links back to it via `salesInvoices.orderI
 - `invoiceDate` — Invoice date (DATE)
 - `dueDate` — Payment due date (DATE)
 - `status` — `Draft`, `Open`, or `Paid`
-- `remainingAmount` — Outstanding amount (DECIMAL); **only on salesInvoices, not purchaseInvoices**
+- `remainingAmount` — Outstanding amount (DECIMAL); **only on salesInvoices, not purchaseInvoices**. Computed field — cannot be used in ORDER BY (see Conventions)
 - `orderId` / `orderNumber` — Originating order reference
 
 ### purchaseOrders / purchaseInvoices (differences from sales)
@@ -320,6 +320,7 @@ WHERE [documentId] = '<salesOrder-id>'
 SELECT [id], [number], [status], [customerName], [invoiceDate], [dueDate], [totalAmountIncludingTax], [remainingAmount]
 FROM [YourConnection].[YourCompany].[salesInvoices]
 WHERE [status] = 'Open'
+-- sort on dueDate (a bound column); remainingAmount is computed and cannot be sorted server-side
 ORDER BY [dueDate]
 LIMIT 20
 ```
@@ -467,4 +468,5 @@ If write operations are blocked, the Connect AI connection may be set to readonl
 - **Pseudo-columns appear on every table.** `Filter`, `DirectURL`, `HTTPMethod`, and `URLType` are driver-internal columns visible in `getColumns` output — ignore them.
 - **Navigation columns appear on every table.** Columns like `salesOrderLines`, `currency`, `customer`, and `documentAttachments` are OData navigation properties surfaced as VARCHAR. They do not contain queryable data in SELECT and should not be used in WHERE clauses.
 - **Dynamic schema.** BC's table and column set comes from the OData `$metadata` for the tenant. Custom fields added in BC appear as additional columns. Use `getColumns` to discover them.
+- **Computed columns reject ORDER BY.** Some columns are computed/derived rather than bound to a table field (confirmed: `salesInvoices.remainingAmount`). Sorting on them fails server-side with "cannot be used for $orderby because it is not bound directly to a table field." Sort on a bound column instead (e.g. `dueDate`, `totalAmountIncludingTax`) or retrieve unsorted and sort client-side. If a sort or filter on any column errors this way, treat that column as computed.
 - **Date format.** Use `'YYYY-MM-DD'` for DATE literals in WHERE clauses.
