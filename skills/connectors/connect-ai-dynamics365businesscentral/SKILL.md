@@ -144,7 +144,7 @@ A sales invoice created from an order links back to it via `salesInvoices.orderI
 - `paymentMethodId` — FK to `paymentMethods.id`
 - `shipmentMethodId` — FK to `shipmentMethods.id`
 - `creditLimit` — Credit limit (DECIMAL)
-- `blocked` — VARCHAR enum: `_x0020_` = not blocked; other values indicate blocked states
+- `blocked` — VARCHAR AL-enum; filter on the literal encoded string, not a real space: `'_x0020_'` = not blocked, observed blocked states `'Ship'`/`'Invoice'`/`'All'` (may not be exhaustive — see Conventions for the authoritative-list technique)
 - `lastModifiedDateTime` — Last modified timestamp
 
 ### vendors
@@ -155,7 +155,7 @@ A sales invoice created from an order links back to it via `salesInvoices.orderI
 - `balance` — Outstanding balance (DECIMAL; note: `balance` on vendors vs `balanceDue` on customers)
 - `currencyCode` — Currency code
 - `paymentTermsId` — FK to `paymentTerms.id`
-- `blocked` — VARCHAR enum (same encoding as customers)
+- `blocked` — VARCHAR AL-enum (same encoding as customers); same not-blocked literal `'_x0020_'`, own blocked states (observed: `'Payment'`/`'All'`; may not be exhaustive)
 - `irs1099Code` — US 1099 reporting code
 - `lastModifiedDateTime` — Last modified timestamp
 
@@ -455,7 +455,7 @@ If write operations are blocked, the Connect AI connection may be set to readonl
 - **AL enum encoding.** Multi-word BC enum values are XML-symbol-encoded: space → `_x0020_`, hyphen → `_x002D_`. Pass the encoded form literally in WHERE filters and on INSERT/UPDATE:
   - `items.type`: `Inventory`, `Service`, `Non_x002D_Inventory`
   - `*.lineType`: `Item`, `Account`, `Comment`, `Charge`, `Fixed_x0020_Asset`, `Allocation_x0020_Account`
-  - `customers/vendors.blocked`: `_x0020_` = not blocked (the unblocked state is a space character)
+  - `customers/vendors.blocked`: filter on the literal string `'_x0020_'`, not a real space (a real space returns "not a valid enumeration type constant"). `'_x0020_'` = not blocked; observed blocked states `'Ship'`/`'Invoice'`/`'All'` (customers), `'Payment'`/`'All'` (vendors). May not be exhaustive — use the invalid-insert technique below for the authoritative list.
   - `generalLedgerEntries.documentType`: `_x0020_` = unspecified, `Invoice`, `Payment`
   - To discover valid values for an enum field on INSERT: attempt an insert with an invalid value — the error message lists the accepted options.
 - **`blocked` is not uniform across tables.** On `customers` and `vendors`, `blocked` is a VARCHAR enum. On `items` and `accounts`, `blocked` is a BOOLEAN. Check `getColumns` to confirm the type before filtering.
