@@ -48,9 +48,11 @@ Use `getTables` against the target company schema. The `TABLE_TYPE` column is th
 - `TABLE` — writable (INSERT / UPDATE / DELETE supported)
 - `VIEW` — read-only (SELECT only)
 
-Key writable tables: `customers`, `vendors`, `items`, `salesOrders` + `salesOrderLines`, `salesInvoices` + `salesInvoiceLines`, `salesQuotes` + `salesQuoteLines`, `salesCreditMemos` + `salesCreditMemoLines`, `purchaseOrders` + `purchaseOrderLines`, `purchaseInvoices` + `purchaseInvoiceLines`, `journals` + `journalLines`
+Key writable tables: `customers`, `vendors`, `items`, `salesOrders` + `salesOrderLines`, `salesInvoices` + `salesInvoiceLines`, `salesQuotes` + `salesQuoteLines`, `salesCreditMemos` + `salesCreditMemoLines`, `purchaseOrders` + `purchaseOrderLines`, `purchaseInvoices` + `purchaseInvoiceLines`
 
 Key read-only views: `accounts`, `generalLedgerEntries`, `agedAccountsReceivables`, `agedAccountsPayables`, `companies`, `dimensions`, `balanceSheets`, `incomeStatements`, all `posted*` and `*Archive*` tables. Note: `purchaseQuotes` is a VIEW while `salesQuotes` is a TABLE.
+
+`journals` and `journalLines` report `TABLE_TYPE = TABLE`, but treat them as read sources — see the note in Write Operations on journal entry creation.
 
 ### Step 3: Inspect Columns
 
@@ -58,7 +60,7 @@ Run `getColumns` on the target table before querying or writing. The `Readonly` 
 
 ### Step 4: Query with Full Three-Part Names
 
-Filter on indexed fields for best performance — `id` (GUID), `number`, `status`, `customerId`/`vendorId`, and date columns push down efficiently. For line tables, always filter by `documentId`.
+Filter on key fields — `id` (GUID), `number`, `status`, `customerId`/`vendorId`, `documentId`, and date columns are the standard filterable fields. For line tables, filter by `documentId`.
 
 ```sql
 SELECT [id], [number], [status], [customerName], [orderDate], [totalAmountIncludingTax]
@@ -93,7 +95,7 @@ LIMIT 20
 - **accounts** (VIEW) — Chart of accounts with type, category, and net change
 - **generalLedgerEntries** (VIEW) — Posted GL transactions with debit/credit amounts
 - **journals** — Journal batch headers (named posting containers)
-- **journalLines** — Unposted journal entry lines; INSERT to stage entries for posting
+- **journalLines** — Journal entry lines within a batch
 
 #### Financial Reports (all VIEWs)
 - **agedAccountsReceivables** / **agedAccountsPayables** — Customer and vendor aging summaries
@@ -106,16 +108,16 @@ LIMIT 20
 
 ### Document Hierarchy
 
-Sales and purchase documents follow a header → lines pattern:
+Each document type is a separate top-level header with its own line table. Lines reference their header via `documentId` (GUID):
 
 ```
-salesOrders (header)  ──┐
-                         ├── salesOrderLines (lines, via documentId)
-                         └── salesInvoices  (converted header)
-                                └── salesInvoiceLines (lines, via documentId)
+salesOrders (header)      ── salesOrderLines   (lines, via documentId)
+salesInvoices (header)    ── salesInvoiceLines (lines, via documentId)
+purchaseOrders (header)   ── purchaseOrderLines
+purchaseInvoices (header) ── purchaseInvoiceLines
 ```
 
-Lines reference their header via `documentId` (GUID). Always filter line tables by `documentId` — this is the most efficient query pattern for line retrieval.
+A sales invoice created from an order links back to it via `salesInvoices.orderId`. Filter line tables by `documentId` to retrieve a specific document's lines.
 
 ### Key Relationships
 
@@ -235,8 +237,8 @@ Lines reference their header via `documentId` (GUID). Always filter line tables 
 - `id` — GUID primary key
 - `number` — G/L account number
 - `displayName` — Account name
-- `accountType` — `Posting`, `Heading`, `Total`, `Begin-Total`, or `End-Total`
-- `category` — `Assets`, `Liabilities`, `Equity`, `Income`, `CostOfGoodsSold`, or `Expense`
+- `accountType` — `Posting`, `Heading`, `Total`, `Begin_x002D_Total`, or `End_x002D_Total` (AL enum; hyphen encoded)
+- `category` — `Assets`, `Liabilities`, `Equity`, `Income`, `Expense`, `Cost_x0020_of_x0020_Goods_x0020_Sold`, or `_x0020_` (unassigned) (AL enum)
 - `subCategory` — Detailed sub-category
 - `netChange` — Net change for the current period (DECIMAL)
 - `directPosting` — Accepts direct postings (BOOLEAN)
@@ -249,7 +251,7 @@ Lines reference their header via `documentId` (GUID). Always filter line tables 
 - `accountId` / `accountNumber` — Account reference
 - `postingDate` — Posting date (DATE); **always filter by this for date-range queries**
 - `documentNumber` — Source document number
-- `documentType` — `_x0020_` (unspecified), `Invoice`, `Payment`, `Credit Memo` (AL enum)
+- `documentType` — observed values `_x0020_` (unspecified), `Invoice`, `Payment` (AL enum; other BC document types may appear)
 - `description` — Transaction description
 - `debitAmount` / `creditAmount` — Debit and credit amounts (DECIMAL)
 
@@ -304,7 +306,7 @@ LIMIT 20
 
 ### Lines for a Specific Document
 
-Filter by the header's `id` using the `documentId` column. This is the most efficient pattern for retrieving lines — always use it rather than joining header and line tables.
+Filter by the header's `id` using the `documentId` column to retrieve a document's lines.
 
 ```sql
 SELECT [id], [sequence], [lineType], [lineObjectNumber], [description], [quantity], [unitPrice], [amountExcludingTax]
@@ -354,25 +356,20 @@ ORDER BY [lineNumber]
 
 ### RequestRawValue
 
-Fetches the raw value of a BC OData property — most commonly used to retrieve document PDFs or binary attachments. Provide the full BC API URL for the resource.
+Fetches the raw value of a BC OData resource — a primitive property value or a binary stream such as a document PDF or attachment. Parameters:
+
+- `MediaReadLink` (required) — the full URL to the resource (a media-stream link or a primitive-property URL).
+- `FileStream` (optional) — an output-stream target for the content. Cloud Connect AI environments have no local disk or stream target, so binary retrieval through this procedure is constrained; confirm the return behavior in your environment before relying on it.
+
+Document media links are surfaced through the `pdfDocument` view, which is queryable only when **both** `parentType` (an AL enum, e.g. `Sales_x0020_Invoice`) and `parentId` (the document `id`) are supplied. The `pdfDocumentContent` column holds the document content:
 
 ```sql
-EXEC [YourConnection].[YourCompany].RequestRawValue
-  @MediaReadLink = 'https://api.businesscentral.dynamics.com/v1.0/<tenant>/api/v2.0/companies(<companyId>)/salesInvoices(<invoiceId>)/pdfDocument(<invoiceId>)/content'
+SELECT [id], [parentType], [pdfDocumentContent]
+FROM [YourConnection].[YourCompany].[pdfDocument]
+WHERE [parentType] = 'Sales_x0020_Invoice' AND [parentId] = '<salesInvoice-id>'
 ```
 
-Alternative JSON format for `executeProcedure`:
-
-```json
-{
-  "procedure": "RequestRawValue",
-  "parameters": {
-    "MediaReadLink": "https://api.businesscentral.dynamics.com/v1.0/<tenant>/api/v2.0/companies(<companyId>)/salesInvoices(<invoiceId>)/pdfDocument(<invoiceId>)/content"
-  }
-}
-```
-
-When `FileLocation` is omitted, the procedure returns file content as base64 in the `FileData` response column. Discover the PDF URL from the `pdfDocument` view or by querying the `DirectURL` pseudo-column on the parent table.
+(The `GetAdminConsentURL` procedure also exists but is only used during OAuth setup, not for data work.)
 
 ## Write Operations
 
@@ -430,16 +427,6 @@ VALUES ('<order-id>', 'Comment', 'Rush delivery requested')
 
 **Unsupported line types:** `Resource`, `Charge`, `Fixed_x0020_Asset`, and `Allocation_x0020_Account` lines cannot be created via Connect AI — these line types have no id column, and BC's API requires an object reference that cannot be formed without one.
 
-### Create a Journal Line
-
-First retrieve the journal batch `id` from `journals` (filter by `code`), then insert lines:
-
-```sql
-INSERT INTO [YourConnection].[YourCompany].[journalLines]
-  ([journalId], [lineNumber], [accountId], [postingDate], [amount], [description])
-VALUES ('<journal-id>', 10000, '<account-id>', '2025-01-31', 5000.00, 'Accrual entry Jan 2025')
-```
-
 ### Update an Existing Record
 
 ```sql
@@ -447,6 +434,10 @@ UPDATE [YourConnection].[YourCompany].[customers]
 SET [email] = 'billing@contoso.com', [paymentTermsId] = '<terms-id>'
 WHERE [id] = '<customer-id>'
 ```
+
+### Journal Entries Are Read-Only in Practice
+
+`journals` and `journalLines` are readable, but creating a `journalLine` through the generic connector is not supported on a standard connection: the insert is rejected because the general-journal batch association is not established (`Name must have a value in Gen. Journal Batch`). Document `journals` / `journalLines` for reading (filter lines by `journalId`); use the BC web client or a dedicated integration to post journal entries.
 
 ### No Posting, Shipping, or Sending
 
