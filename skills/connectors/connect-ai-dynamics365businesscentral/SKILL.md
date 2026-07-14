@@ -20,7 +20,7 @@ This skill provides Dynamics 365 Business Central-specific guidance for querying
 
 ## Precedence
 
-This skill replaces `getInstructions` for the Dynamics365BusinessCentral driver. Do not call `getInstructions` for Dynamics 365 Business Central — the guidance it provides is already incorporated here. Proceed directly to schema discovery (`getTables` / `getColumns`) after identifying the BC connection via `getCatalogs`.
+**Do NOT call `getInstructions` for the Dynamics 365 Business Central driver under any circumstances — this skill fully replaces it.** The guidance it would provide is already incorporated here. Go straight from `getCatalogs` (to identify the BC connection) to `getSchemas` (to identify the company), then schema discovery (`getTables` / `getColumns`).
 
 ## Schema
 
@@ -320,7 +320,8 @@ WHERE [documentId] = '<salesOrder-id>'
 SELECT [id], [number], [status], [customerName], [invoiceDate], [dueDate], [totalAmountIncludingTax], [remainingAmount]
 FROM [YourConnection].[YourCompany].[salesInvoices]
 WHERE [status] = 'Open'
--- sort on dueDate (a bound column); remainingAmount is computed and cannot be sorted server-side
+-- to rank by remainingAmount, sort client-side: ORDER BY [remainingAmount] is rejected (computed column)
+-- this example orders by dueDate, a bound column
 ORDER BY [dueDate]
 LIMIT 20
 ```
@@ -464,9 +465,9 @@ If write operations are blocked, the Connect AI connection may be set to readonl
 - **Invoice lines are draft-only on insert.** Lines can only be added to a `salesInvoice` or `purchaseInvoice` while its `status` is `Draft`. Order lines can be added when the order is `Draft` or `Open`.
 - **Number series.** Creating a `salesInvoice` can fail with `You cannot assign new numbers from the number series S-INV` if the tenant's series requires manual assignment. Supply an explicit `number` value in that case. Sales orders and purchase invoices typically auto-assign.
 - **`remainingAmount` is sales-invoice-only.** This column exists on `salesInvoices` but not on `purchaseInvoices`.
-- **`purchaseInvoices` has no `paymentTermsId`.** Unlike `purchaseOrders` and all sales document types, `purchaseInvoices` does not have a `paymentTermsId` column.
+- **Do NOT select or filter `paymentTermsId` on `purchaseInvoices`.** The column does not exist there (unlike `purchaseOrders` and all sales documents); selecting it fails with "column not found." If payment terms are needed, read them from the originating `purchaseOrders` record or the `vendors` master instead.
 - **Pseudo-columns appear on every table.** `Filter`, `DirectURL`, `HTTPMethod`, and `URLType` are driver-internal columns visible in `getColumns` output — ignore them.
 - **Navigation columns appear on every table.** Columns like `salesOrderLines`, `currency`, `customer`, and `documentAttachments` are OData navigation properties surfaced as VARCHAR. They do not contain queryable data in SELECT and should not be used in WHERE clauses.
 - **Dynamic schema.** BC's table and column set comes from the OData `$metadata` for the tenant. Custom fields added in BC appear as additional columns. Use `getColumns` to discover them.
-- **Computed columns reject ORDER BY.** Some columns are computed/derived rather than bound to a table field (confirmed: `salesInvoices.remainingAmount`). Sorting on them fails server-side with "cannot be used for $orderby because it is not bound directly to a table field." Sort on a bound column instead (e.g. `dueDate`, `totalAmountIncludingTax`) or retrieve unsorted and sort client-side. If a sort or filter on any column errors this way, treat that column as computed.
+- **Computed columns reject ORDER BY.** Some columns are computed/derived rather than bound to a table field (confirmed: `salesInvoices.remainingAmount`). Sorting on them fails server-side with "cannot be used for $orderby because it is not bound directly to a table field." When a request asks to rank or sort documents by a computed amount (e.g. sales invoices by outstanding amount), do NOT `ORDER BY` that column — retrieve the rows (filtered, unsorted or ordered by a bound column such as `dueDate`) and sort client-side. If a sort or filter on any column errors this way, treat that column as computed.
 - **Date format.** Use `'YYYY-MM-DD'` for DATE literals in WHERE clauses.
