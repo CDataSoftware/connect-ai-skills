@@ -48,9 +48,9 @@ Use `getTables` against the target company schema. The `TABLE_TYPE` column is th
 - `TABLE` — writable (INSERT / UPDATE / DELETE supported)
 - `VIEW` — read-only (SELECT only)
 
-Key writable tables: `customers`, `vendors`, `items`, `salesOrders` + `salesOrderLines`, `salesInvoices` + `salesInvoiceLines`, `salesQuotes` + `salesQuoteLines`, `salesCreditMemos` + `salesCreditMemoLines`, `purchaseOrders` + `purchaseOrderLines`, `purchaseInvoices` + `purchaseInvoiceLines`
+Key writable tables: `customers`, `vendors`, `items`, `salesOrders` + `salesOrderLines`, `salesInvoices` + `salesInvoiceLines`, `salesQuotes` + `salesQuoteLines`, `salesCreditMemos` + `salesCreditMemoLines`, `purchaseOrders` + `purchaseOrderLines`, `purchaseInvoices` + `purchaseInvoiceLines`, `purchaseCreditMemos` + `purchaseCreditMemoLines`
 
-Key read-only views: `accounts`, `generalLedgerEntries`, `agedAccountsReceivables`, `agedAccountsPayables`, `companies`, `dimensions`, `balanceSheets`, `incomeStatements`, all `posted*` and `*Archive*` tables. Note: `purchaseQuotes` is a VIEW while `salesQuotes` is a TABLE.
+Key read-only views: `accounts`, `generalLedgerEntries`, `agedAccountsReceivables`, `agedAccountsPayables`, `companies`, `dimensions`, `pdfDocument`, `balanceSheets`, `incomeStatements`, all `posted*` and `*Archive*` tables. Note: `purchaseQuotes` is a VIEW while `salesQuotes` is a TABLE.
 
 `journals` and `journalLines` report `TABLE_TYPE = TABLE`, but treat them as read sources — see the note in Write Operations on journal entry creation.
 
@@ -358,20 +358,28 @@ ORDER BY [lineNumber]
 
 ### RequestRawValue
 
-Fetches the raw value of a BC OData resource — a primitive property value or a binary stream such as a document PDF or attachment. Parameters:
+Retrieves the raw value of a BC OData resource — a primitive property or a binary stream such as a document PDF. This is how to pull a document PDF through Connect AI, in two steps.
 
-- `MediaReadLink` (required) — the full URL to the resource (a media-stream link or a primitive-property URL).
-- `FileStream` (optional) — an output-stream target for the content. Cloud Connect AI environments have no local disk or stream target, so binary retrieval through this procedure is constrained; confirm the return behavior in your environment before relying on it.
-
-Document media links are surfaced through the `pdfDocument` view, which is queryable only when **both** `parentType` (an AL enum, e.g. `Sales_x0020_Invoice`) and `parentId` (the document `id`) are supplied. The `pdfDocumentContent` column holds the document content:
+**Step 1 — get the media read link from the `pdfDocument` view.** The view is queryable only when **both** `parentType` (an AL enum, e.g. `Sales_x0020_Invoice`) and `parentId` (the document `id`) are supplied. Its `pdfDocumentContent` column returns the resource URL (not the bytes):
 
 ```sql
-SELECT [id], [parentType], [pdfDocumentContent]
+SELECT [pdfDocumentContent]
 FROM [YourConnection].[YourCompany].[pdfDocument]
 WHERE [parentType] = 'Sales_x0020_Invoice' AND [parentId] = '<salesInvoice-id>'
 ```
 
-(The `GetAdminConsentURL` procedure also exists but is only used during OAuth setup, not for data work.)
+**Step 2 — pass that URL to `RequestRawValue` as `MediaReadLink`.** Omit the optional `FileStream` parameter (a local output-stream target that cloud environments cannot provide); the procedure then returns the content as base64 in the `FileData` column, alongside `Success`:
+
+```json
+{
+  "procedure": "RequestRawValue",
+  "parameters": {
+    "MediaReadLink": "<pdfDocumentContent URL from step 1>"
+  }
+}
+```
+
+Decode the `FileData` base64 to recover the PDF. `parentType` is an AL enum — use the encoded value for the document type (e.g. `Sales_x0020_Invoice`, `Purchase_x0020_Invoice`). (The `GetAdminConsentURL` procedure also exists but is only used during OAuth setup, not for data work.)
 
 ## Write Operations
 
