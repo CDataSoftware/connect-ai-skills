@@ -45,7 +45,7 @@ Run `getSchemas` to list available companies. On a multi-company connection (the
 ### Step 2: Explore Tables
 
 Use `getTables` against the target company schema. The `TABLE_TYPE` column is the reliable writability signal:
-- `TABLE` — writable (INSERT / UPDATE / DELETE supported)
+- `TABLE` — writable (INSERT / UPDATE supported)
 - `VIEW` — read-only (SELECT only)
 
 Key writable tables: `customers`, `vendors`, `items`, `salesOrders` + `salesOrderLines`, `salesInvoices` + `salesInvoiceLines`, `salesQuotes` + `salesQuoteLines`, `salesCreditMemos` + `salesCreditMemoLines`, `purchaseOrders` + `purchaseOrderLines`, `purchaseInvoices` + `purchaseInvoiceLines`, `purchaseCreditMemos` + `purchaseCreditMemoLines`
@@ -451,7 +451,7 @@ WHERE [id] = '<customer-id>'
 
 ### No Posting, Shipping, or Sending
 
-Document workflows (posting an invoice, shipping an order, emailing a PDF) are BC bound actions not exposed as stored procedures. Connect AI is limited to **draft-document CRUD** — create, read, update, and delete documents and their lines. Use the BC web client or Power Automate for posting and workflow actions.
+Document workflows (posting an invoice, shipping an order, emailing a PDF) are BC bound actions not exposed as stored procedures. Through the query interface, Connect AI supports **creating, reading, and updating** documents and their lines. Use the BC web client or Power Automate for posting and workflow actions.
 
 ### Write Access Control
 
