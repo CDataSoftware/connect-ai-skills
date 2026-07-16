@@ -412,11 +412,17 @@ INSERT INTO [YourConnection].[YourCompany].[purchaseOrders] ([vendorId]) VALUES 
 
 -- Purchase invoice — vendorId required
 INSERT INTO [YourConnection].[YourCompany].[purchaseInvoices] ([vendorId]) VALUES ('<vendor-id>')
+
+-- Sales credit memo — customerId required
+INSERT INTO [YourConnection].[YourCompany].[salesCreditMemos] ([customerId]) VALUES ('<customer-id>')
+
+-- Purchase credit memo — vendorId required
+INSERT INTO [YourConnection].[YourCompany].[purchaseCreditMemos] ([vendorId]) VALUES ('<vendor-id>')
 ```
 
 ### Add a Line to a Document
 
-Lines require `documentId` + `lineType` + `quantity`. For Item lines, supply `itemId` (auto-fills description, UoM, and price). For Account/G-L lines, supply `accountId`. Comment lines need no object id.
+Lines require `documentId` + `lineType` + `quantity` — this pattern applies to every document family's `*Lines` table (orders, invoices, and credit memos). For Item lines, supply `itemId` (auto-fills description, UoM, and price). For Account/G-L lines, supply `accountId`. Comment lines need no object id.
 
 ```sql
 -- Item line on a sales order
@@ -444,6 +450,10 @@ UPDATE [YourConnection].[YourCompany].[customers]
 SET [email] = 'billing@contoso.com', [paymentTermsId] = '<terms-id>'
 WHERE [id] = '<customer-id>'
 ```
+
+### Deletes
+
+DELETE is not supported through the generic Connect AI MCP server or the universal tools exposed by the toolkits. To delete records, use the connector's source tools (enable them if needed) and refer to the individual delete tool descriptions.
 
 ### Journal Entries Are Read-Only in Practice
 
