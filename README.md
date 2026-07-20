@@ -1,12 +1,14 @@
 # CData Connect AI Skills
 
 > [!IMPORTANT]
-> This repository is under development. Additional connector-family skills (`connect-ai-crm`, `connect-ai-erp`, `connect-ai-hcm`, `connect-ai-ticketing`, `connect-ai-analytics`, `connect-ai-files`) and connector-specific skills are in development.
+> This repository is under development. Additional connector-specific skills are in development.
+>
+> **Family** (in the table below) is only a grouping label describing a connector's domain — CRM, ERP, HCM, Accounting, Ticketing, Collaboration, Files, and so on. There are no installable "family" skills: every skill in this repo is either `connect-ai-base` or a connector-specific skill.
 
 ## Installation
 
 > [!NOTE]
-> `connect-ai-base` must be enabled alongside any other skill in this repo — all connector-family and connector-specific skills build on top of it. Always include `--skill connect-ai-base` when installing other skills individually.
+> `connect-ai-base` must be enabled alongside any other skill in this repo — all connector-specific skills build on top of it. Always include `--skill connect-ai-base` when installing other skills individually.
 
 Install every skill in this repo:
 
