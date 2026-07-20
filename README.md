@@ -33,19 +33,30 @@ npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill c
 | [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all other skills compose on top of it. |
 | [`connect-ai-salesforce`](skills/connectors/connect-ai-salesforce/SKILL.md) | CRM | Salesforce data model, query patterns, stored procedures, and Salesforce-specific conventions. |
 | [`connect-ai-bullhorncrm`](skills/connectors/connect-ai-bullhorncrm/SKILL.md) | CRM | Bullhorn CRM recruiting data model (Candidates, ClientCorporations, JobOrders, JobSubmissions, Placements), file-attachment procedures, edit-history tables, and Bullhorn conventions. |
+| [`connect-ai-dynamics365businesscentral`](skills/connectors/connect-ai-dynamics365businesscentral/SKILL.md) | ERP | Dynamics 365 Business Central BC Common Service API data model (/api/v2.0 endpoint), company schema routing, sales/purchase document families, journal entries, AL enum encoding, write operations, and BC-specific conventions. |
 | [`connect-ai-workday`](skills/connectors/connect-ai-workday/SKILL.md) | HCM | Workday's multi-connection-type model (REST/WQL/Reports/SOAP), per-connection-type references, prompt-column lookups, value tables, and change-resource procedures. |
 | [`connect-ai-quickbooksonline`](skills/connectors/connect-ai-quickbooksonline/SKILL.md) | Accounting | QuickBooks Online data model (GL, AP, AR, items, banking), line-item patterns, LineAggregate XML for inserts, and report objects. |
 | [`connect-ai-sageintacct`](skills/connectors/connect-ai-sageintacct/SKILL.md) | Accounting | Sage Intacct's dual XML/REST surfaces, routed via `getSchemas`, with per-surface data models, the `UseLegacy` performance note, stored procedures, and write operations. |
 | [`connect-ai-stripe`](skills/connectors/connect-ai-stripe/SKILL.md) | Accounting | Stripe's dual classic/V2 surfaces, routed via `getSchemas`, with the customer-centric billing/payments model, lifecycle stored procedures, cloud-compatible file download patterns, and Stripe-specific conventions. |
 | [`connect-ai-jira`](skills/connectors/connect-ai-jira/SKILL.md) | Ticketing | Jira data model, issue hierarchy, query patterns, stored procedures, and Jira-specific conventions. |
-| [`connect-ai-confluence`](skills/connectors/connect-ai-confluence/SKILL.md) | Collaboration | Confluence data model (spaces, pages, comments, attachments, users, and analytics/hierarchy views), the space → page → refine workflow, and base64 image/attachment retrieval. |
+| [`connect-ai-confluence`](skills/connectors/connect-ai-confluence/SKILL.md) | Collaboration | Confluence data model (spaces, pages, comments, attachments, users, and analytics/hierarchy views), the space → page → refine query workflow, and base64 image/attachment retrieval. |
 | [`connect-ai-airtable`](skills/connectors/connect-ai-airtable/SKILL.md) | Collaboration | Airtable's multi-schema model (Information metadata plus one schema per base), per-base table/view anatomy, attachment/collaborator fields, comments, and stored procedures. |
 | [`connect-ai-docusign`](skills/connectors/connect-ai-docusign/SKILL.md) | Collaboration | DocuSign data model (Envelopes, Templates, Documents, Recipients), envelope lifecycle queries, and procedures for creating/downloading documents. |
 | [`connect-ai-googlecalendar`](skills/connectors/connect-ai-googlecalendar/SKILL.md) | Collaboration | Google Calendar data model (events, calendars, ACLs, attachments), the per-calendar table pattern, availability queries, and event create/move procedures. |
 | [`connect-ai-googlesheets`](skills/connectors/connect-ai-googlesheets/SKILL.md) | Collaboration | Google Sheets data model (Spreadsheets and Sheets metadata, dynamic per-sheet data tables), the spreadsheet→sheet→data query flow, the create-spreadsheet/add-sheet/insert workflow, and stored procedures. |
+| [`connect-ai-exchange`](skills/connectors/connect-ai-exchange/SKILL.md) | Collaboration | Exchange's dual MSGraph/EWS surfaces with surface-detection routing, per-surface data models, query patterns, stored procedures, write operations, and Exchange-specific conventions. |
+| [`connect-ai-gmail`](skills/connectors/connect-ai-gmail/SKILL.md) | Collaboration | Gmail data model (messages, threads, drafts, labels, attachments, and account settings), the label-as-view pattern, SearchQuery-based filtering, base64 attachment retrieval, mail-sending and labeling stored procedures, and Gmail-specific conventions. |
 | [`connect-ai-googledrive`](skills/connectors/connect-ai-googledrive/SKILL.md) | Files | Google Drive data model (files, folders, drives, permissions) and procedures for uploading and downloading file content. |
 
 Additional skills will be listed here as they ship.
+
+## Onboarding
+
+New to Connect AI? Start here.
+
+| Skill | Description |
+|---|---|
+| [`connect-ai-onboarding-claude-code`](skills/onboarding/connect-ai-onboarding-claude-code/SKILL.md) | Guided first-time setup for Claude Code users: create a Connect AI account, authenticate to the MCP server (PAT by default, browser OAuth alternative), connect a data source, and run a first query. |
 
 ## Prerequisites
 
