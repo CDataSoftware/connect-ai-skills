@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > This repository is under development. Additional connector-specific skills are in development.
 >
-> **Family** (in the table below) is only a grouping label describing a connector's domain — CRM, ERP, HCM, Accounting, Ticketing, Collaboration, Files, and so on. There are no installable "family" skills: every skill in this repo is either `connect-ai-base` or a connector-specific skill.
+> **Family** (in the table below) is a grouping label describing a connector's domain — CRM, ERP, HCM, Accounting, Ticketing, Collaboration, Files, and so on.
 
 ## Installation
 
