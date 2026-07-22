@@ -63,7 +63,7 @@ Use the media `Id` to read a post's comments, or join to `MediaInsights` for its
 - **InstagramBusinessProfile** — Account metadata: username, full name, bio, website, and the follower/follows/media counts. One row per connected business account.
 - **Media** — Published media objects (photos, videos, reels, carousels) with caption, like/comment counts, and the `Created` timestamp. The primary "what did this account post" table.
 - **IGMedia** — Media at the object level with extra identifiers: `IGId`, `ShortCode`, `PermanentURL`, `ThumbnailUrl`. Use when you need a post's public permalink or short code.
-- **Comments** *(writable)* — Top-level comments on media. Read all comments or scope by `MediaId`. Supports Insert and Delete for moderation.
+- **Comments** *(writable)* — Top-level comments on media. Read all comments or scope by `MediaId`. Supports Insert (adding a comment).
 - **Replies** *(writable)* — Replies threaded under a comment, linked by `CommentId` (with the parent `MediaId`). Supports Insert.
 - **MediaInsights** — Per-media performance: `Views`, `Reach`, `TotalInteractions`, `Saved`, `Replies`. Read all media or scope by `MediaId`.
 - **AccountInsights** — Account-level performance over time, driven by the `Period` and `MetricType` control columns.
@@ -158,6 +158,8 @@ FROM [YourConnection].[Instagram].[IGMedia]
 LIMIT 5
 ```
 
+For just a shareable link, `Media` also exposes a `Link` column equivalent to `IGMedia.PermanentURL`, so a "give me the link to this post" question can be answered straight from `Media`. Reach for `IGMedia` when you specifically need `ShortCode` or `IGId`.
+
 ### Comments on a specific post
 
 ```sql
@@ -222,14 +224,7 @@ VALUES
 ('<comment-id>', 'Appreciate the feedback!')
 ```
 
-### Delete a comment (moderation)
-
-```sql
-DELETE FROM [YourConnection].[Instagram].[Comments]
-WHERE Id = '<comment-id>'
-```
-
-Writing to comments and replies requires the `instagram_manage_comments` permission on the connected app. If a write is blocked, the Connect AI connection may not have write access enabled — guide the user to their Connect AI connection settings to ensure write access is enabled.
+Writing to comments and replies requires the `instagram_manage_comments` permission on the connected app. This surface supports adding rows (INSERT) only — there is no DELETE operation, so comments cannot be removed through Connect AI. If an INSERT is blocked, the Connect AI connection may not have write access enabled — guide the user to their Connect AI connection settings to ensure write access is enabled.
 
 ## Instagram-Specific Conventions
 
@@ -240,5 +235,5 @@ Writing to comments and replies requires the `instagram_manage_comments` permiss
 - **Join media to insights on `Id = MediaId`.** `Media.Id` and `IGMedia.Id` match `MediaInsights.MediaId`.
 - **Scope comments and replies.** Filter `Comments` by `MediaId` to read one post's thread; `Replies` link to a parent `CommentId`.
 - **Filter media by explicit dates.** Filter `Media` on `Created` (e.g. `Created >= '2024-01-01'`) and sort with `ORDER BY Created DESC`.
-- **Permission errors are scope issues.** `Tags` (and some insight scopes) require additional Instagram permissions. "Application does not have permission for this action" means the connected app lacks the needed scope, not that the query is malformed.
-- **Writes are limited to comments and replies.** Everything else is read-only; do not attempt INSERT/UPDATE on media, profile, or insight tables.
+- **Permission errors are scope issues.** `Tags` (and some insight scopes) require additional Instagram permissions. "Application does not have permission for this action" means the connected app lacks the needed scope, not that the query is malformed. On a connection that *has* the scope, an empty `Tags` result just means no matching tagged media — not a failure.
+- **Writes are add-only.** `Comments` and `Replies` support INSERT (posting a comment or reply); there is no DELETE on this surface, so comments cannot be removed. Media, profile, and insight tables are read-only — do not attempt to write to them.
