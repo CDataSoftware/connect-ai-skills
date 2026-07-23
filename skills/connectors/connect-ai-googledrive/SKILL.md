@@ -262,8 +262,8 @@ Returns the document as Google Docs API **JSON** in a `Content` column (not plai
 - **Metadata edits** — `UPDATE` the `Files` table for writable fields (`Name`, `Description`, `Starred`, `Trashed`, `WritersCanShare`, etc.).
 - **File content / new files** — use `UploadFile` (base64), not table INSERT.
 - **Moving** — use `MoveResource` (`ParentIds` is read-only).
-- **Deleting** — `MoveToTrash` (recoverable) or `DeleteResource` (permanent); or `DELETE` on `Files`.
-- **Sharing** — INSERT/UPDATE/DELETE on `Permissions` (set `Role`, `Type`, `EmailAddress`/`Domain`).
+- **Deleting** — `MoveToTrash` (recoverable) or `DeleteResource` (permanent). Direct `DELETE FROM [Files]` is not available over the MCP surface (no `execute_delete`) — use these procedures instead.
+- **Sharing** — INSERT/UPDATE on `Permissions` (set `Role`, `Type`, `EmailAddress`/`Domain`). Revoking a share needs a row delete (`DELETE`), which is not available over MCP.
 
 If writes are blocked, the Connect AI connection may be in readonly mode — guide the user to enable write access in the connection settings.
 
@@ -275,7 +275,7 @@ If writes are blocked, the Connect AI connection may be in readonly mode — gui
 - **`GetDocumentContent` is only for Google Docs** (`MIMEType = 'application/vnd.google-apps.document'`). It returns Google Docs API JSON, not plain text — parse `textRun.content` for the readable text. On any other file type it returns empty content with `Success=false`. For non-Google-Docs files, use `DownloadFile` instead.
 - **`ParentIds` is read-only** — use `MoveResource` to move an item between folders; the table won't accept an UPDATE to `ParentIds`.
 - **Date filters are essential** — large Drives time out without a `ModifiedTime`/`CreatedTime` (or other) filter. Prefer explicit date literals (`'2025-01-01'`) over `DATEADD()`.
-- **Booleans use `true`/`false` (or `1`/`0`)** — e.g. `[Starred] = true`, `[Folder] = false`, `[Trashed] = false`.
+- **Booleans use `true`/`false`** — e.g. `[Starred] = true`, `[Folder] = false`, `[Trashed] = false`. Do **not** use `1`/`0`: the driver maps `WHERE` into the Drive query, which rejects numeric booleans with `HTTP [400] Invalid Value`.
 - **The `Files` table is very wide (~115 columns)**, including a large `Can*` capability family (`CanEdit`, `CanShare`, `CanDownload`, …). Select only what you need and run `getColumns` to discover fields.
 - **`Query` pseudo-column** lets you pass a raw Google Drive SDK query that overrides the WHERE clause — useful for Drive-native filters the SQL layer doesn't expose, but bypasses normal WHERE handling.
 - **Shortcuts are real rows** with `MIMEType = 'application/vnd.google-apps.shortcut'`; follow `ShortcutTargetId` to the actual item.
