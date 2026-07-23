@@ -126,7 +126,7 @@ Each takes a single required `EventDestinationId`. Use Enable/Disable to flip a 
 
 ## Write Operations
 
-`EventDestinations` supports INSERT / UPDATE / DELETE where the connection allows it — create a destination by inserting `Name`, `Type`, `EnabledEvents`, and `WebhookEndpointUrl` (or the `AmazonEventbridge*` fields for an EventBridge destination). `WebhookEndpointSigningSecret` is returned only at creation, so capture it then. `Status` is not a writable column — use `EnableEventDestination` / `DisableEventDestination` instead. `ThinEvents` is read-only.
+`EventDestinations` supports INSERT / UPDATE where the connection allows it (row deletion is not available over the MCP surface — no `execute_delete`) — create a destination by inserting `Name`, `Type`, `EnabledEvents`, and `WebhookEndpointUrl` (or the `AmazonEventbridge*` fields for an EventBridge destination). `WebhookEndpointSigningSecret` is returned only at creation, so capture it then. `Status` is not a writable column — use `EnableEventDestination` / `DisableEventDestination` instead. `ThinEvents` is read-only.
 
 If writes are blocked, the Connect AI connection may be in readonly mode — guide the user to enable write access in the connection settings.
 
