@@ -278,7 +278,7 @@ For room *usage/occupancy* data (not just the room list), impersonate the room m
 EWS supports writes through both stored procedures (send/move — above) and direct DML on writable folder/item tables:
 
 - **Draft and send mail** — INSERT into `Drafts`, then `SendItem` with its `ItemId`; or `SendMail` to compose and send in one step.
-- **Create / update / delete calendar events** — DML on `Calendar` (control invitations with the `SendMeetingInvitations` / `SendCancellationsMode` columns).
+- **Create / update calendar events** — DML on `Calendar` (control invitations with the `SendMeetingInvitations` / `SendCancellationsMode` columns). Row deletion is not available over the MCP surface (no `execute_delete`).
 - **Create / update contacts and tasks** — DML on `Contacts` and `Tasks`.
 
 **Recipient columns are singular on INSERT.** The plural, delimited recipient columns you read from `Inbox` / `SentItems` (`ToRecipients_Names`, `ToRecipients_EmailAddresses`) are read-only and **do not exist on `Drafts`**. To set recipients on an INSERT, use the singular columns: `ToRecipients_EmailAddress` and `ToRecipients_Name` (and `CcRecipients_EmailAddress`, `BccRecipients_EmailAddress`). Create a draft with:
