@@ -8,7 +8,7 @@
 ## Installation
 
 > [!NOTE]
-> `connect-ai-base` must be enabled alongside any other skill in this repo — all connector-specific skills build on top of it. Always include `--skill connect-ai-base` when installing other skills individually.
+> `connect-ai-base` must be enabled alongside any **connector** skill — all connector-specific skills build on top of it. Always include `--skill connect-ai-base` when installing a connector skill individually. The **Platform** skills (`connect-ai-manage`, `connect-ai-direct`) are standalone and do **not** require `connect-ai-base`.
 
 Install every skill in this repo:
 
@@ -16,7 +16,7 @@ Install every skill in this repo:
 npx skills add CDataSoftware/connect-ai-skills
 ```
 
-Install a specific skill by name (the folder name under [`skills/`](skills/)). Pair it with `connect-ai-base`:
+Install a specific skill by name (the folder name under [`skills/`](skills/)). Pair a connector skill with `connect-ai-base`:
 
 ```
 npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-salesforce
@@ -28,11 +28,17 @@ Pass `--skill` multiple times to install several skills in one command:
 npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill connect-ai-salesforce --skill connect-ai-jira
 ```
 
+The Platform skills install standalone (no `connect-ai-base` needed):
+
+```
+npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-manage
+```
+
 ### Available skills
 
 | Skill | Family | Description |
 |---|---|---|
-| [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all other skills compose on top of it. |
+| [`connect-ai-base`](skills/connect-ai-base/SKILL.md) | — | **Base skill.** Required connection confirmation, discovery workflow for the generic MCP Server and Toolkits, query construction, and common error recovery. Load this first — all connector skills compose on top of it. |
 | [`connect-ai-salesforce`](skills/connectors/connect-ai-salesforce/SKILL.md) | CRM | Salesforce data model, query patterns, stored procedures, and Salesforce-specific conventions. |
 | [`connect-ai-bullhorncrm`](skills/connectors/connect-ai-bullhorncrm/SKILL.md) | CRM | Bullhorn CRM recruiting data model (Candidates, ClientCorporations, JobOrders, JobSubmissions, Placements), file-attachment procedures, edit-history tables, and Bullhorn conventions. |
 | [`connect-ai-dynamics365businesscentral`](skills/connectors/connect-ai-dynamics365businesscentral/SKILL.md) | ERP | Dynamics 365 Business Central BC Common Service API data model (/api/v2.0 endpoint), company schema routing, sales/purchase document families, journal entries, AL enum encoding, write operations, and BC-specific conventions. |
@@ -52,6 +58,15 @@ npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill c
 
 Additional skills will be listed here as they ship.
 
+## Platform
+
+Operate CData Connect AI itself over its REST API (**not** the MCP server). These skills are **standalone** — they do not require `connect-ai-base`, and they use a direct Auth0/PAT transport rather than MCP tools.
+
+| Skill | Description |
+|---|---|
+| [`connect-ai-manage`](skills/platform/connect-ai-manage/SKILL.md) | **Platform administration.** Manage Connect AI itself over the admin REST API (`/api/ui/*`, Auth0): connections, drivers, workspaces, toolkits, jobs, users/roles, PATs, and billing. Not for querying data. |
+| [`connect-ai-direct`](skills/platform/connect-ai-direct/SKILL.md) | **Direct-API data path.** Query and write data over the raw REST API (`/api/*`) when no MCP connector is available — Auth0 via the bundled CLI, or a PAT on shell-less surfaces. A discovery-only fallback; prefer `connect-ai-base` + a connector skill whenever a connector is present. |
+
 ## Onboarding
 
 New to Connect AI? Start here.
@@ -63,7 +78,8 @@ New to Connect AI? Start here.
 ## Prerequisites
 
 - **CData Connect AI** account with at least one connection configured
-- The **Connect AI MCP server** added to your AI integration (see [Connect AI Integrations - AI Tools](https://docs.cloud.cdata.com/en/Integrations#ai-tools))
+- For the **MCP-based skills** (`connect-ai-base` + connector skills): the **Connect AI MCP server** added to your AI integration (see [Connect AI Integrations - AI Tools](https://docs.cloud.cdata.com/en/Integrations#ai-tools))
+- For the **Platform skills** (`connect-ai-manage`, `connect-ai-direct`): no MCP server required — they authenticate directly (Auth0 browser sign-in via the bundled CLI, or a PAT) and call the Connect AI REST API
 
 ## License
 
