@@ -1,6 +1,6 @@
 # Operations — exact request/response shapes & SQL rules
 
-Everything here is verified against the CData driver source (`ProviderCDataConnect`) and confirmed with live calls on 2026-06-02. Base URL: `https://cloud.cdata.com`. Header on every call: `Authorization: Bearer <token>`, `Content-Type: application/json` for POST/PUT.
+Everything here is verified against the CData driver source (`ProviderCDataConnect`) and confirmed with live calls on 2026-06-02. Base URL: `https://cloud.cdata.com`. Auth header on every call: `Authorization: Bearer <token>` (Path A, shell) or `Authorization: Basic base64(email:PAT)` (Path B, shell-less); `Content-Type: application/json` for POST/PUT.
 
 ---
 
@@ -138,11 +138,11 @@ Verified from `CDataConnectMetadataUtil` (`SPPARAM_DIRECT_*`). **Note the order 
 ## Choosing & validating a target
 
 1. `GET /api/catalogs` → see all data sources. With hundreds present, narrow by name.
-2. To confirm a catalog is *live* (its vendor login hasn't expired), check `GET /api/ui/account/connections` and prefer ones with a recent `lastQueried`. A dead catalog returns **400** on `/api/schemas` — see [edge-cases.md](edge-cases.md#stale-catalog).
+2. A catalog whose vendor login has expired returns **400** on `/api/schemas` (or `INVALID_LOGIN` on a query). There's no `lastQueried` signal on the pure data plane, so **try and handle**: if a catalog 400s, treat it as stale and pick another (or have the owner reconnect it). See [edge-cases.md](edge-cases.md#stale-catalog).
 3. `schemaOnly: true` on `/api/query` is the most reliable way to get a table's columns when `/api/columns` is being stubborn — see [edge-cases.md](edge-cases.md#columns-empty).
 
 ---
 
 ## Translating plain English to SQL
 
-This skill does NL→SQL **client-side**: discover the schema (3a), then write the SQL yourself and run it via `/api/query`. This is more reliable than the portal's `/api/ui/openai/query` endpoint, whose request contract is not publicly stable (see [edge-cases.md](edge-cases.md#nl-sql)). Always show the user the SQL you generated before running a write.
+This skill does NL→SQL **client-side**: discover the schema first, then write the SQL yourself and run it via `/api/query`. This is more reliable than the portal's `/api/ui/openai/query` endpoint, whose request contract is not publicly stable (see [edge-cases.md](edge-cases.md#nl-sql)). Always show the user the SQL you generated before running a write.

@@ -1,11 +1,13 @@
 # Worked examples — PowerShell · curl · Python
 
-Each example assumes you already have an Auth0 Bearer token (see [authentication.md](authentication.md)). Replace catalog/schema/table names with your own — discover them first (`GET /api/catalogs` → `/api/schemas` → `/api/tables`).
+Data-plane (`/api/*`) examples. Each assumes you already have a credential (see [authentication.md](authentication.md)) — an Auth0 Bearer token on a shell (Path A) or a PAT via Basic auth on a shell-less surface (Path B). Replace catalog/schema/table names with your own — discover them first (`GET /api/catalogs` → `/api/schemas` → `/api/tables`).
 
-Throughout:
+Throughout (Path A / Bearer shown; for Path B swap in `Authorization: Basic base64(email:PAT)`):
 - **PowerShell:** `$H = @{ Authorization = "Bearer $tok"; Accept = "application/json" }`
 - **curl:** `-H "Authorization: Bearer $TOK"`
 - **Python:** `headers = {"Authorization": f"Bearer {tok}", "Accept": "application/json"}`
+
+> Administering the platform (create connections, publish workspaces, mint PATs, invite users, jobs) is **not** this skill — those examples live in the `connect-ai-manage` skill.
 
 ---
 
@@ -136,88 +138,7 @@ $r.results[0].schema | ForEach-Object { "{0,-30} dataType={1} nullable={2}" -f $
 
 ---
 
-## 8. Find the live catalogs (skip stale vendor logins)
-
-```powershell
-$c = Invoke-RestMethod "https://cloud.cdata.com/api/ui/account/connections" -Headers $H
-$c.connections |
-  Where-Object { $_.lastQueried } |
-  Sort-Object lastQueried -Descending |
-  Select-Object name, driver, lastQueried -First 10 |
-  Format-Table -AutoSize
-```
-
----
-
-<a id="create-connection"></a>
-## 9. Create a connection — learn the form, create, verify
-
-Flow (verified against the portal's own create flow via a HAR capture): `driver-form` → `connection-create` → it verifies by listing schemas. There is **no** reliable standalone pre-create test endpoint — the portal creates first, then lists schemas.
-
-**Claude Code (CLI) — recommended:**
-```bash
-node scripts/connect-cli.mjs driver-form --driver Salesforce --auth-scheme Basic     # learn props
-node scripts/connect-cli.mjs connection-create --name SF_Prod --driver Salesforce \
-  --props '{"AuthScheme":"Basic","User":"me@org.com","Password":"***","SecurityToken":"***"}'
-# -> {"status":"created","id":"...","verified":true}   (verified = schema discovery succeeded)
-node scripts/connect-cli.mjs connection-test --name SF_Prod                           # re-verify anytime
-```
-
-**Claude Chat (raw HTTP) — the exact body shape the portal sends (PascalCase; driver settings under `Props`):**
-```jsonc
-POST /api/ui/account/connections
-{
-  "ConnectionType": 0,
-  "Driver": "Salesforce",
-  "DriverVersion": "<from GET /api/ui/drivers>",
-  "IsCacheConnection": false,
-  "Name": "SF_Prod",
-  "OAuthProps": {}, "OnPremOptions": {}, "WalletFileContent": "",
-  "UserId": "<your id from GET /api/ui/users/self>",
-  "Permissions": [ { "userId": "<your id>", "opsAllowed": 1 } ],
-  "Props": { "AuthScheme": "Basic", "User": "me@org.com", "Password": "***",
-             "SecurityToken": "***", "credentials": "shared" }
-}
-```
-> A lowercase `{ "name", "driver", "properties" }` body returns **HTTP 500** — the keys must be PascalCase and the driver settings must be under `Props`. Create returns the connection with `isTested:false`; confirm it works with `GET /api/ui/schemas?catalogName=SF_Prod`.
-
----
-
-## 10. Publish tables to a workspace
-
-```powershell
-$ws = Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/workspaces" `
-  -Headers $H -ContentType "application/json" -Body (@{ name="SalesforceAnalytics" } | ConvertTo-Json)
-
-Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/workspaces/$($ws.id)/assets/fromConnection" `
-  -Headers $H -ContentType "application/json" -Body (@{
-    connectionId = "<connId>"; catalog = "Salesforce1"; schema = "Salesforce"; tables = @("Account","Contact","Case")
-  } | ConvertTo-Json)
-```
-
----
-
-## 11. Mint a PAT for another tool (token shown once)
-
-```powershell
-$pat = Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/users/self/pats" `
-  -Headers $H -ContentType "application/json" -Body (@{ name="my-bi-tool"; lifespan=7776000 } | ConvertTo-Json)
-"PAT (copy now — shown once): $($pat.tokenString)"   # field is tokenString, NOT token
-# revoke later: DELETE /api/ui/users/self/pats/$($pat.id)
-```
-
----
-
-## 12. Invite a user (admin)
-
-```powershell
-Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/users/invite" `
-  -Headers $H -ContentType "application/json" -Body (@{ emails=@("new@example.com"); role="user" } | ConvertTo-Json)
-```
-
----
-
-## 13. A robust call wrapper (handles the HTTP-200-error envelope)
+## 8. A robust call wrapper (handles the HTTP-200-error envelope)
 
 Drop-in helper that treats the error envelope correctly and surfaces real status codes.
 
