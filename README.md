@@ -49,6 +49,7 @@ npx skills add CDataSoftware/connect-ai-skills --skill connect-ai-base --skill c
 | [`connect-ai-exchange`](skills/connectors/connect-ai-exchange/SKILL.md) | Collaboration | Exchange's dual MSGraph/EWS surfaces with surface-detection routing, per-surface data models, query patterns, stored procedures, write operations, and Exchange-specific conventions. |
 | [`connect-ai-gmail`](skills/connectors/connect-ai-gmail/SKILL.md) | Collaboration | Gmail data model (messages, threads, drafts, labels, attachments, and account settings), the label-as-view pattern, SearchQuery-based filtering, base64 attachment retrieval, mail-sending and labeling stored procedures, and Gmail-specific conventions. |
 | [`connect-ai-googledrive`](skills/connectors/connect-ai-googledrive/SKILL.md) | Files | Google Drive data model (files, folders, drives, permissions) and procedures for uploading and downloading file content. |
+| [`connect-ai-instagram`](skills/connectors/connect-ai-instagram/SKILL.md) | Marketing | Instagram Business data model, media and insights tables, comment/reply write patterns, and Instagram-specific conventions. |
 
 Additional skills will be listed here as they ship.
 
