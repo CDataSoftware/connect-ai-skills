@@ -74,7 +74,7 @@ Prompt columns (`_Prompt` suffix) mirror Workday UI export-form fields. They acc
 - **Date and boolean prompts take literals**, not GUIDs (e.g., `FromDate_Prompt` = `'2024-01-01'`, `includeSubordinateOrganizations_Prompt` = `1`). These don't need a value-table lookup.
 - **Lookup chains can be 3+ levels deep.** A value table for one prompt may itself require a prompt sourced elsewhere. Plan backward from the target.
 
-REST layers entity-category rules on top of this — which prompts an entity inherits depends on whether it's Base / Child / Owned / Owned child. See [references/rest.md](references/rest.md#prompt-columns-rest-entity-categories).
+REST layers entity-category rules on top of this — which prompts an entity inherits depends on whether it's Base / Child / Owned / Owned child. See [references/rest.md](references/rest.md).
 
 ### Value tables
 
