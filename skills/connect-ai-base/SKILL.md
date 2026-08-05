@@ -111,6 +111,8 @@ For stored procedures: `getProcedures` → `getProcedureParameters` → `execute
 
 4. **`<connection_name>_get_tables` / `<connection_name>_get_columns`** *(if present)* — discover structure. Same rules as Path A: do not guess names; call `<connection_name>_get_columns` before referencing specific columns in `<connection_name>_queryData`.
 
+**File-transfer tools** *(if present)* — a toolkit may also expose tools that move file content into or out of the source. Uploading is a three-part handshake: call `request_upload` to get an upload target and a token, transfer the bytes to that target out of band, then call the connector's upload tool with that token to complete the transfer. Downloading is a single call. In both directions the bytes travel out of band and never enter the conversation — do not inline or base64-encode file content. Once an upload has completed, do not repeat it.
+
 ---
 
 ### Precondition Decision Tree (Paths A and B)
