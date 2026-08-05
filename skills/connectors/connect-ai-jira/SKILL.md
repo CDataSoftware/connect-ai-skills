@@ -358,7 +358,7 @@ WHERE [IssueKey] = 'PROJ-123'
 
 ### UploadAttachment
 
-**Not callable as a stored procedure.** The `FileLocation` parameter requires disk access, which is unavailable in the cloud, and `Content` expects a Java InputStream, which cannot be supplied in a procedure call. Attachment upload is instead handled by a toolkit's file-transfer tools, which move the bytes out of band — see the base skill's Path B note for that handshake. If your session has no such tool, treat Jira attachment upload as unavailable and do not attempt a workaround.
+**Not callable as a stored procedure.** The `FileLocation` parameter requires disk access, which is unavailable in the cloud, and `Content` expects a Java InputStream, which cannot be supplied in a procedure call. Attachment upload is instead handled by a toolkit's file-transfer tools, which move the bytes out of band — see the base skill's file-transfer handshake. If your session has no such tool, treat Jira attachment upload as unavailable and do not attempt a workaround.
 
 ### CreateCustomField
 

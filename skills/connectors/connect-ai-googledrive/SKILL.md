@@ -214,7 +214,7 @@ Returns the document as Google Docs API **JSON** in a `Content` column (not plai
 
 ### UploadFile — add or update a file
 
-**Cloud-compatible call shape** — supply the content as base64 via `@FileData` with `@Encoding = 'BASE64'` (the default). Do not use `@LocalFile` (a server-side disk path) or `@Content` (an InputStream) — neither can be supplied in a procedure call. A toolkit session may instead expose a file-transfer tool that uploads a *new* file by streaming `@Content` out of band; where that tool is present, prefer it over base64 and see the base skill's Path B note for the handshake. Content *replacement* stays base64 here either way. Pass `@Id` to update an existing file's content; omit it to create a new one. `@ParentIds` places the file in a folder; `@MIMEType` is auto-detected if omitted.
+**Cloud-compatible call shape** — supply the content as base64 via `@FileData` with `@Encoding = 'BASE64'` (the default). Do not use `@LocalFile` (a server-side disk path) or `@Content` (an InputStream) — neither can be supplied in a procedure call. A toolkit session may instead expose a file-transfer tool that uploads a *new* file by streaming `@Content` out of band; where that tool is present, prefer it over base64 and see the base skill's file-transfer handshake. Content *replacement* stays base64 here either way. Pass `@Id` to update an existing file's content; omit it to create a new one. `@ParentIds` places the file in a folder; `@MIMEType` is auto-detected if omitted.
 
 ```json
 {
