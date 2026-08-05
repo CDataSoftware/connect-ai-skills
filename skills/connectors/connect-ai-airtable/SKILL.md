@@ -46,7 +46,7 @@ SELECT * FROM [YourConnection].[Project tracker].[👀 Overview] LIMIT 10
 2. **Find the base** — call `getSchemas`, or query `[Information].[Bases]` to list bases by name and `PermissionLevel`. The base name *is* the schema name.
 3. **Find the table** — call `getTables` for that base schema, or query `[Information].[Tables] WHERE [BaseName] = '<base>'`. Each base contains your record TABLEs plus auto-generated VIEWs (see Data Model).
 4. **Inspect columns** — `getColumns` on the target table. Airtable columns are user-defined per table and often contain spaces/emojis; never assume column names.
-5. **Query / write** — query the base table, filtering on `[CreatedTime]` or user fields. Write with INSERT/UPDATE/DELETE (targeting `[Internal_Id]`), add comments via the `Comments` table, or call a stored procedure.
+5. **Query / write** — query the base table, filtering on `[CreatedTime]` or user fields. Write with INSERT/UPDATE (targeting `[Internal_Id]` for UPDATE), add comments via the `Comments` table, or call a stored procedure.
 
 ## Data Model
 
@@ -75,7 +75,7 @@ Each base also has a **`Comments`** table for querying and adding record comment
 
 Every record table includes driver-managed columns alongside your fields:
 
-- `Internal_Id` — the row's primary key (the Airtable record id). **Target this in UPDATE/DELETE WHERE clauses.**
+- `Internal_Id` — the row's primary key (the Airtable record id). **Target this in UPDATE WHERE clauses.**
 - `BaseId`, `TableId` — identifiers of the containing base/table (read-only)
 - `CreatedTime` — record creation timestamp (read-only) — use for date filtering
 
@@ -224,7 +224,7 @@ Syncs raw CSV into a Sync API table. Requires a pre-existing Sync API table and 
 
 ## Write Operations
 
-Base record tables support INSERT, UPDATE, and DELETE where the connection and your Airtable `PermissionLevel` allow it. The `Information` schema is read-only.
+Base record tables support INSERT and UPDATE where the connection and your Airtable `PermissionLevel` allow it. The `Information` schema is read-only. **Row deletion is not available over the MCP surface** — there is no `execute_delete`, so `DELETE FROM` cannot run even with an `edit`/`create` `PermissionLevel`; delete records in the Airtable UI instead.
 
 ### Insert a record
 
@@ -240,13 +240,6 @@ VALUES
 ```sql
 UPDATE [YourConnection].[Project tracker].[👀 Overview]
 SET [Status] = 'Complete'
-WHERE [Internal_Id] = '<record-internal-id>'
-```
-
-### Delete a record
-
-```sql
-DELETE FROM [YourConnection].[Project tracker].[👀 Overview]
 WHERE [Internal_Id] = '<record-internal-id>'
 ```
 
@@ -267,7 +260,7 @@ If writes are blocked, check (1) the Connect AI connection's readonly setting (C
 - **Bracket-quote everything.** Base, table, view, and column names routinely contain spaces, commas, emojis, and dots — e.g. `[📝 Tasks, timelines, and assignees]`. Unquoted names will fail.
 - **Saved views are queryable as `[Table.<view name>]`.** The dot is part of a single identifier (not a schema/table separator) — bracket the whole string. Views are read-only and carry the saved view's filters/sorts.
 - **Rich fields expand into dotted sub-columns.** Collaborator fields become `[Field.Email]`, `[Field.Name]`, etc.; attachments also surface via the `[Table_Attachments]` view. Run `getColumns` first to see the real expanded names.
-- **`Internal_Id` is the row primary key.** Use it (not a user field) in UPDATE/DELETE WHERE clauses; it is the Airtable record id.
+- **`Internal_Id` is the row primary key.** Use it (not a user field) in UPDATE WHERE clauses; it is the Airtable record id.
 - **`CreatedTime` is a system column** present on record tables — use it for date filtering. Prefer explicit date literals (`'2025-01-01'`) over `DATEADD()` for performance.
 - **Schemas are per base.** Switching bases means switching the schema segment; there is no cross-base table. Use `[Information].[Tables]` to locate a table's `BaseName` first.
 - **`Comments` requires a `TableName` filter on reads.** Querying `[BaseName].[Comments]` without `WHERE [TableName] = '...'` fails with a required-value error. If you hit this error, retry with a `[TableName]` filter set to the target table name. Optionally add `[RecordId]` to scope to a single record. Writes (INSERT) also require `TableName` and `RecordId` as column values.

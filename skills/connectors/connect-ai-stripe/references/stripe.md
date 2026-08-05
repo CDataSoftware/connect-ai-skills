@@ -307,7 +307,7 @@ Two caveats worth confirming:
 
 ## Write Operations
 
-Most core tables support INSERT/UPDATE/DELETE where the connection allows it (e.g. `Customers`, `Products`, `Prices`, `Invoices`, `Subscriptions`, `Charges`, `InvoiceItems`). However, **lifecycle state transitions are procedure-driven, not column writes** — cancel a subscription with `CancelSubscription` (not `UPDATE … SET Status='canceled'`), capture a payment with `CapturePaymentIntent`, finalize/void invoices with `FinalizeInvoice`/`VoidInvoice`, etc. Reach for a procedure when the change is an action rather than a field edit.
+Most core tables support INSERT/UPDATE where the connection allows it (e.g. `Customers`, `Products`, `Prices`, `Invoices`, `Subscriptions`, `Charges`, `InvoiceItems`); row deletion is not available over the MCP surface (no `execute_delete`). **Lifecycle state transitions are also procedure-driven, not column writes** — cancel a subscription with `CancelSubscription` (not `UPDATE … SET Status='canceled'`), capture a payment with `CapturePaymentIntent`, finalize/void invoices with `FinalizeInvoice`/`VoidInvoice`, etc. Reach for a procedure when the change is an action rather than a field edit.
 
 If writes are blocked, the Connect AI connection may be in readonly mode — guide the user to enable write access in the connection settings.
 

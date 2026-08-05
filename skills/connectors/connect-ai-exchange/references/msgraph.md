@@ -53,7 +53,7 @@ LIMIT 20
 ### Key Tables and Views
 
 - **Messages** (table) — Every mail item across the mailbox in one table (not per-folder). Subject, sender, recipients, body, read/attachment status, `parentFolderId` for the containing folder. The central table for most email requests. Writable.
-- **Events** (table) — Calendar events with organizer, attendees, recurrence, online-meeting details, response status. Writable — create/update/delete events here.
+- **Events** (table) — Calendar events with organizer, attendees, recurrence, online-meeting details, response status. Writable — create/update events here.
 - **CalendarView** (view, read-only) — A recurrence-expanded view of events. By default it returns occurrences from the user's default calendar for the last 30 days; supply a `start_dateTime` (and optionally `end_dateTime`) filter to move or widen that window. Read-only.
 - **Calendars** / **CalendarGroups** (tables) — The user's calendars and calendar groups; `Events` rows carry a `calendarId`.
 - **Contacts** (table) — Personal contacts. Writable.
@@ -284,7 +284,7 @@ The `MessageAttachments` / `EventAttachments` views are the query equivalent for
 MSGraph supports writes through both stored procedures (send/forward/reply/move/respond — above) and direct DML on writable tables:
 
 - **Send or draft mail** — `SendMail`, or INSERT into `Messages` to create a draft.
-- **Create / update / delete events** — DML on `Events` (not `CalendarView`, which is read-only).
+- **Create / update events** — DML on `Events` (not `CalendarView`, which is read-only). Row deletion is not available over the MCP surface (no `execute_delete`).
 - **Create / update contacts** — DML on `Contacts`. Always include `[displayName]` in a Contact UPDATE (see Important Columns).
 
 Write access is governed by the Connect AI catalog permissions for the Exchange connection — check the `PERMISSIONS` column from `getCatalogs` (`Insert` / `Update` / `Delete` / `Execute`, not just `Select`). If a write is rejected, the connection is read-only for the current user and access must be granted in Connect AI.

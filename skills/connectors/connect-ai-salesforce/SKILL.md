@@ -27,7 +27,7 @@ This skill replaces `getInstructions` for the Salesforce driver. Do not call `ge
 Salesforce is a single-schema driver. The schema name is `Salesforce`.
 
 ```sql
-SELECT * FROM [MySalesforceConnection].[Salesforce].[Account] LIMIT 5
+SELECT * FROM [YourConnection].[Salesforce].[Account] LIMIT 5
 ```
 
 ## Query Process
@@ -45,13 +45,13 @@ If `getTables` or `getProcedures` are not available (disabled at the connection 
 
 ```sql
 -- List all tables
-SELECT [TableName], [TableType] FROM [MySalesforceConnection].[Salesforce].[sys_tables] ORDER BY [TableName]
+SELECT [TableName], [TableType] FROM [YourConnection].[Salesforce].[sys_tables] ORDER BY [TableName]
 
 -- List all stored procedures
-SELECT [ProcedureName] FROM [MySalesforceConnection].[Salesforce].[sys_procedures] ORDER BY [ProcedureName]
+SELECT [ProcedureName] FROM [YourConnection].[Salesforce].[sys_procedures] ORDER BY [ProcedureName]
 
 -- List custom objects only
-SELECT [TableName] FROM [MySalesforceConnection].[Salesforce].[sys_tables] WHERE [TableName] LIKE '%__c' ORDER BY [TableName]
+SELECT [TableName] FROM [YourConnection].[Salesforce].[sys_tables] WHERE [TableName] LIKE '%__c' ORDER BY [TableName]
 ```
 
 These system tables are always available via `queryData` regardless of which discovery tools are enabled.
@@ -183,10 +183,10 @@ Salesforce orgs frequently contain custom objects and fields using the `__c` suf
 ### Open opportunities for a specific account
 ```sql
 SELECT [Name], [StageName], [Amount], [CloseDate], [Probability]
-FROM [MySalesforceConnection].[Salesforce].[Opportunity]
+FROM [YourConnection].[Salesforce].[Opportunity]
 WHERE [AccountId] IN (
   SELECT [Id]
-  FROM [MySalesforceConnection].[Salesforce].[Account]
+  FROM [YourConnection].[Salesforce].[Account]
   WHERE [Name] LIKE '%Acme%'
 )
 AND [IsClosed] = 0
@@ -196,8 +196,8 @@ ORDER BY [CloseDate] ASC
 ### Contacts with recent activity
 ```sql
 SELECT c.[Name], c.[Email], c.[Title], a.[Name] AS AccountName, c.[LastActivityDate]
-FROM [MySalesforceConnection].[Salesforce].[Contact] c
-LEFT JOIN [MySalesforceConnection].[Salesforce].[Account] a ON c.[AccountId] = a.[Id]
+FROM [YourConnection].[Salesforce].[Contact] c
+LEFT JOIN [YourConnection].[Salesforce].[Account] a ON c.[AccountId] = a.[Id]
 WHERE c.[LastActivityDate] >= '2024-01-01'
 ORDER BY c.[LastActivityDate] DESC
 LIMIT 20
@@ -206,7 +206,7 @@ LIMIT 20
 ### Pipeline summary by stage
 ```sql
 SELECT [StageName], COUNT(*) AS OpportunityCount, SUM([Amount]) AS TotalAmount
-FROM [MySalesforceConnection].[Salesforce].[Opportunity]
+FROM [YourConnection].[Salesforce].[Opportunity]
 WHERE [IsClosed] = 0
 AND [CloseDate] >= '2025-01-01'
 GROUP BY [StageName]
@@ -216,7 +216,7 @@ ORDER BY TotalAmount DESC
 ### Unconverted leads by source
 ```sql
 SELECT [FirstName], [LastName], [Company], [Email], [Status], [CreatedDate]
-FROM [MySalesforceConnection].[Salesforce].[Lead]
+FROM [YourConnection].[Salesforce].[Lead]
 WHERE [IsConverted] = 0
 AND [LeadSource] = 'Web'
 AND [CreatedDate] >= '2025-01-01'
@@ -226,9 +226,9 @@ ORDER BY [CreatedDate] DESC
 ### Accounts without any open opportunities (NOT EXISTS pattern)
 ```sql
 SELECT [Id], [Name], [Industry], [LastActivityDate]
-FROM [MySalesforceConnection].[Salesforce].[Account]
+FROM [YourConnection].[Salesforce].[Account]
 WHERE NOT EXISTS (
-  SELECT 1 FROM [MySalesforceConnection].[Salesforce].[Opportunity] o
+  SELECT 1 FROM [YourConnection].[Salesforce].[Opportunity] o
   WHERE o.[AccountId] = [Account].[Id] AND o.[IsClosed] = 0
 )
 AND [LastModifiedDate] >= '2025-01-01'
@@ -237,7 +237,7 @@ AND [LastModifiedDate] >= '2025-01-01'
 ### Look up valid picklist values for a field
 ```sql
 SELECT [PickList_Value], [PickList_Label], [PickList_IsDefault]
-FROM [MySalesforceConnection].[Salesforce].[PickListValues]
+FROM [YourConnection].[Salesforce].[PickListValues]
 WHERE [TableName] = 'Opportunity'
 AND [ColumnName] = 'StageName'
 AND [PickList_IsActive] = true
@@ -247,7 +247,7 @@ AND [PickList_IsActive] = true
 Use `getTables` with a wildcard to list all custom objects in the org:
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "tableName": "%__c"
 }
@@ -261,13 +261,13 @@ Converts a Lead into an Account, Contact, and optionally an Opportunity.
 Required parameters: `@LeadId`, `@ConvertedStatus`. Before calling, retrieve valid converted status values:
 ```sql
 SELECT [Id], [MasterLabel]
-FROM [MySalesforceConnection].[Salesforce].[LeadStatus]
+FROM [YourConnection].[Salesforce].[LeadStatus]
 WHERE [IsConverted] = true
 ```
 
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "ConvertLead",
   "parameters": {
@@ -286,7 +286,7 @@ Returns IDs of records updated within a UTC time window for a given object type.
 
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "GetUpdated",
   "parameters": {
@@ -305,7 +305,7 @@ Executes a full-text search across Salesforce objects. Accepts either a plain se
 
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "Search",
   "parameters": {
@@ -317,7 +317,7 @@ Executes a full-text search across Salesforce objects. Accepts either a plain se
 For a targeted SOSL query:
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "Search",
   "parameters": {
@@ -331,7 +331,7 @@ Combines up to three records of the same object type into a single master record
 
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "Merge",
   "parameters": {
@@ -356,7 +356,7 @@ Returns API usage and limit details for the Salesforce org. Use before running l
 
 ### DownloadAttachment
 
-Downloads an attachment and returns its content as base64 in the `FileData` column when `FileLocation` is omitted. Confirmed working in cloud Connect AI environments.
+Downloads an attachment and returns its content as base64 in the `FileData` column — set `@Encoding = 'BASE64'` and omit `@FileStream`. Confirmed working in cloud Connect AI environments. (This driver has no `@LocalPath` / `@FileLocation` parameter.)
 
 **Key parameters** — use exactly these names:
 
@@ -365,12 +365,13 @@ Downloads an attachment and returns its content as base64 in the `FileData` colu
 | `@Id` | Conditional | ID of the specific attachment. Required if `@Name` is not provided. **Do not use `@AttachmentId`** — this parameter does not exist and will cause a runtime error. |
 | `@ObjectId` | No | ID of the parent Salesforce object. Use to download all attachments on a record when `@Id` is unknown. |
 | `@Name` | No | Filename as alternative to `@Id` |
-| `@LocalPath` | No | Omit to receive file content as base64 in `FileData` |
 | `@LightningMode` | No | Set to `'true'` for Lightning Files (ContentDocument); omit for Classic Attachments |
+| `@Encoding` | No | Set `'BASE64'` to control the encoding of the returned `FileData` |
+| `@FileStream` | No | Output stream — omit in cloud to receive base64 in `FileData` |
 
 ```json
 {
-  "catalogName": "MySalesforceConnection",
+  "catalogName": "YourConnection",
   "schemaName": "Salesforce",
   "procedureName": "DownloadAttachment",
   "parameters": {
@@ -385,7 +386,7 @@ Response includes `FileData` (base64-encoded content), `FileName`, `Success`, an
 
 | Procedure | Cloud status |
 |-----------|-------------|
-| `DownloadAttachment` | **Confirmed working** — returns base64 content in `FileData` when `FileLocation` is omitted |
+| `DownloadAttachment` | **Confirmed working** — returns base64 content in `FileData` when `@FileStream` is omitted (`@Encoding = 'BASE64'`) |
 | `DownloadContentDocument` | Requires validation — may return base64 content without `FileLocation` |
 | `DownloadDocument` | Requires validation — may return base64 content without `FileLocation` |
 | `UploadAttachment` | Likely non-functional — requires InputStream not available via MCP |
@@ -409,7 +410,7 @@ Parameter map: `@p1` = `ObjectType`, `@p2` = `StartDate`, `@p3` = `EndDate`.
 
 ```json
 {
-  "sql": "EXEC [Salesforce_DB].[Salesforce].GetUpdated @p1 = 'Account', @p2 = '2026-05-01T00:00:00.000Z', @p3 = '2026-05-15T23:59:59.000Z'"
+  "sql": "EXEC [YourConnection].[Salesforce].GetUpdated @p1 = 'Account', @p2 = '2026-05-01T00:00:00.000Z', @p3 = '2026-05-15T23:59:59.000Z'"
 }
 ```
 
@@ -421,19 +422,19 @@ Required params are `@p3` (`ConvertedStatus`) and `@p5` (`LeadId`); the example 
 
 ```json
 {
-  "sql": "EXEC [Salesforce_DB].[Salesforce].ConvertLead @p3 = 'Closed - Converted', @p5 = '00Q000000000001', @p4 = 'true'"
+  "sql": "EXEC [YourConnection].[Salesforce].ConvertLead @p3 = 'Closed - Converted', @p5 = '00Q000000000001', @p4 = 'true'"
 }
 ```
 
 ### DownloadAttachment
 
-Parameter map: `@p1` = `ObjectId`, `@p2` = `Id`, `@p3` = `Name`, `@p4` = `LocalPath`, `@p5` = `LightningMode`, `@p6` = `Encoding`, `@p7` = `FileStream`.
+Parameter map: `@p1` = `ObjectId`, `@p2` = `Id`, `@p3` = `Name`, `@p4` = `LightningMode`, `@p5` = `Encoding`, `@p6` = `FileStream`.
 
 Download by attachment ID (`@p2` = `Id`):
 
 ```json
 {
-  "sql": "EXEC [Salesforce_DB].[Salesforce].DownloadAttachment @p2 = '00P000000000001'"
+  "sql": "EXEC [YourConnection].[Salesforce].DownloadAttachment @p2 = '00P000000000001'"
 }
 ```
 
@@ -443,7 +444,7 @@ Parameter map: `@p1` = `Id`, `@p2` = `Title`, `@p3` = `LocalPath`, `@p4` = `Enco
 
 ```json
 {
-  "sql": "EXEC [Salesforce_DB].[Salesforce].DownloadContentDocument @p1 = '069000000000001'"
+  "sql": "EXEC [YourConnection].[Salesforce].DownloadContentDocument @p1 = '069000000000001'"
 }
 ```
 
@@ -453,7 +454,7 @@ The generic MCP `executeProcedure` tool handles catalog resolution and parameter
 
 ### INSERT example
 ```sql
-INSERT INTO [MySalesforceConnection].[Salesforce].[Lead]
+INSERT INTO [YourConnection].[Salesforce].[Lead]
   ([FirstName], [LastName], [Company], [Email], [LeadSource])
 VALUES
   ('Jane', 'Smith', 'Acme Corp', 'jane@acme.com', 'Web')
@@ -461,7 +462,7 @@ VALUES
 
 ### UPDATE example
 ```sql
-UPDATE [MySalesforceConnection].[Salesforce].[Opportunity]
+UPDATE [YourConnection].[Salesforce].[Opportunity]
 SET [StageName] = 'Closed Won', [Probability] = 100
 WHERE [Id] = '006000000000001'
 ```
