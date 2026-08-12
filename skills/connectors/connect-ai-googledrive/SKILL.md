@@ -260,7 +260,7 @@ Returns the document as Google Docs API **JSON** in a `Content` column (not plai
 ## Write Operations
 
 - **Metadata edits** — `UPDATE` the `Files` table for writable fields (`Name`, `Description`, `Starred`, `Trashed`, `WritersCanShare`, etc.).
-- **File content / new files** — use `UploadFile` (base64), not table INSERT.
+- **File content / new files** — use `UploadFile` (base64, or the file-transfer tool if present), not table INSERT.
 - **Moving** — use `MoveResource` (`ParentIds` is read-only).
 - **Deleting** — `MoveToTrash` (recoverable) or `DeleteResource` (permanent). Direct `DELETE FROM [Files]` is not available over the MCP surface (no `execute_delete`) — use these procedures instead.
 - **Sharing** — INSERT/UPDATE on `Permissions` (set `Role`, `Type`, `EmailAddress`/`Domain`). Revoking a share needs a row delete (`DELETE`), which is not available over MCP.
