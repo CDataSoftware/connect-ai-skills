@@ -14,7 +14,7 @@ Data-plane (`/api/*`) edge cases for this skill. Every claim was **verified live
 | `403` | RBAC — the signed-in user lacks the right | Surface it; ask an admin to grant Select/Insert/Update/Execute on the catalog. |
 | `404` on a table/column | Driver case-sensitivity or wrong name | Re-run `/api/tables` / `/api/columns`; match exact case. |
 | **`<!doctype html>` (HTTP 200)** | SPA-routing trap — browser path, not API | [SPA trap](#spa-trap) — use `/api/*`. |
-| No stable server-side NL→SQL | `/api/ui/openai/query` has no documented, stable request contract | [NL→SQL](#nl-sql) — compose SQL client-side from discovered schema. |
+| No server-side NL→SQL | `/api/ui/openai/*` routes removed from the product (2026-07-31) | [NL→SQL](#nl-sql) — compose SQL client-side from discovered schema. |
 | `401` on `/api/async/*` | Async gateway wants PAT/Basic, rejects Auth0 | [Async](#async) — not relied on; use sync `/api/query`. |
 | `/api/columns` returns 0 rows | Driver metadata cache quirk | [Columns empty](#columns-empty) — use `schemaOnly:true`. |
 | `affectedRows: 0` on write | `WHERE` matched nothing, or read-only column | Verify the filter and column writability via `/api/columns`. |
@@ -46,9 +46,9 @@ Data-plane (`/api/*`) edge cases for this skill. Every claim was **verified live
 ---
 
 <a id="nl-sql"></a>
-## No stable server-side NL→SQL — compose client-side
+## No server-side NL→SQL — compose client-side
 
-The portal's NL→SQL endpoint (`/api/ui/openai/query`) has **no documented, stable request contract** (every tried body shape returned `400`). Don't depend on it.
+The portal's NL→SQL routes (`/api/ui/openai/*`) were **removed from the product on 2026-07-31** and no longer exist. (An earlier check recorded `400`s for every body shape tried, before the routes were deleted.)
 
 **Do NL→SQL client-side:** discover the schema (`/api/schemas` → `/api/tables` → `/api/columns`, or `schemaOnly:true`), compose the SQL yourself, then run it on `/api/query`. This is fully under your control.
 

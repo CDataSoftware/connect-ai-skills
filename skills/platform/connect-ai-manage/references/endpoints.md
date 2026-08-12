@@ -160,11 +160,13 @@ Base URL: `https://cloud.cdata.com`.
 | ✅ | POST | `/api/ui/workspaces/{id}/assets/fromConnection/batch` | Add assets (body: `{Records:[{AssetType:1, ConnectionId, DataAssetCategory:1, ParentId:null, SchemaName, TableName}]}` — what the UI sends) |
 |   | POST | `/api/ui/workspaces/{id}/assets/fromConnection` | Single-asset variant |
 
-### AI / NL-to-SQL ⚠️
+### AI / NL-to-SQL ⚠️ (removed from the product)
+The `/api/ui/openai/*` routes were **removed from the product on 2026-07-31** — they no longer exist. (The 2026-06-02 finding recorded `400`s against `/api/ui/openai/query`; those were a real endpoint rejecting a body shape, before the routes were deleted.) Do NL→SQL **client-side** instead ([detail](edge-cases.md#nl-sql)).
+
 | ✓ | Method | Path | Purpose |
 |---|---|---|---|
-| ⚠️ | POST | `/api/ui/openai/query` | NL→SQL — **400 on tested body shapes** ([detail](edge-cases.md#nl-sql)) |
-|   | POST | `/api/ui/openai/tokens` | Token counter |
+| 🚫 | POST | `/api/ui/openai/query` | NL→SQL — **removed from the product (2026-07-31)** |
+| 🚫 | POST | `/api/ui/openai/tokens` | Token counter — **removed from the product (2026-07-31)** |
 
 ### Billing & overview
 | ✓ | Method | Path | Purpose |
@@ -280,7 +282,7 @@ Uses partner-specific Basic auth (a separate credential, **not** the Auth0 token
 | Verify a connection | `GET /api/ui/schemas?catalogName=N` (create then list schemas) |
 | Create a connection | `POST /api/ui/account/connections` |
 | Workspaces / publish tables | `GET\|POST /api/ui/workspaces` · `POST /api/ui/workspaces/{id}/assets/fromConnection` |
-| Users / invite | `GET /api/ui/users` · `POST /api/ui/users/invite` |
+| Users / invite | `GET /api/ui/users` · `POST /api/ui/user/inviteNewUserList` |
 | Mint a PAT | `POST /api/ui/users/self/pats` |
 | Account / billing | `GET /api/ui/account/getInfo` · `/api/ui/billing/subscription` |
 | DELETE anything | 🚫 gated — confirm with user, or refuse for data |

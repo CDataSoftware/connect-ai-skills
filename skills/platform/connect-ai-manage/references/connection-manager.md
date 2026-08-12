@@ -2,7 +2,7 @@
 
 End-to-end management of Connect AI connections via the admin BFF (`/api/ui/*`), so routine connection work never needs the portal. This is the **guided-flow** layer on top of the raw endpoints: it asks for the driver, the auth scheme, and any needed settings, securely collects credentials, then creates and verifies the connection.
 
-**Auth:** the same Auth0 Bearer token as everything else in this skill. In **Claude Code** get it from the CLI cache (`$jwt = & .\scripts\cdata-connect-auth.ps1` — shares the cache with `connect-cli.mjs login`). In **Claude Chat** use the pasted browser token. All snippets below assume `$jwt` is set.
+**Auth:** the same Auth0 Bearer token as everything else in this skill, from the CLI (`$jwt = & .\scripts\cdata-connect-auth.ps1` — shares the cache with `connect-cli.mjs login`). Admin is CLI-only; there is no shell-less path (see [authentication.md](authentication.md)). All snippets below assume `$jwt` is set.
 
 > Simple cases are one CLI command (`connections`, `connection-create`, `connection-delete` — see [cli.md](cli.md)). Use the flows in THIS file when the user wants a **guided** create (pick driver → pick auth scheme → collect credentials securely), an **update** of an existing connection, **scripted OAuth without the portal**, or per-user **permissions**.
 
@@ -110,13 +110,17 @@ $writeHeaders = @{
   "X-Requested-With" = "XMLHttpRequest"
 }
 $body = @{
-  ConnectionType = 0
-  Driver         = "<Driver>"
-  DriverVersion  = $driverVersion
-  Name           = "<Name>"
-  Props          = $props
-  Permissions    = @($permissions)
-  OnPremOptions  = @{}
+  ConnectionType    = 0
+  Driver            = "<Driver>"
+  DriverVersion     = $driverVersion
+  IsCacheConnection = $false
+  Name              = "<Name>"
+  UserId            = $creatorId
+  Props             = $props
+  OAuthProps        = @{}
+  OnPremOptions     = @{}
+  WalletFileContent = ""
+  Permissions       = @($permissions)
 } | ConvertTo-Json -Depth 10
 
 $r = Invoke-RestMethod -Method Post `
@@ -213,7 +217,7 @@ Confirm: "Connection **\<Name\>** deleted successfully."
 
 | Situation | What to do |
 |---|---|
-| 401 | Token expired — re-run `login` (CLI auto-refreshes) or re-capture the browser token |
+| 401 | Token expired — re-run `login` (CLI auto-refreshes) |
 | 403 | Tell user they need admin rights → 👉 [cloud.cdata.com/settings/users](https://cloud.cdata.com/settings/users) |
 | 404 | Ask user to verify the name. Offer to list. |
 | CONNECTION_TEST_FAILED | Credentials missing — delete and recreate if no creds set; ask user to re-enter creds via form if creds were set |

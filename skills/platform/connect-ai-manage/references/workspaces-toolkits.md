@@ -14,7 +14,7 @@ The helper resolves a Bearer token in this order:
 3. Token file `~/.cdata_token` (overridable with `--token-file` or `CDATA_TOKEN_FILE`)
 4. **The skill's Auth0 CLI cache** (`%LOCALAPPDATA%\CData\connect-auth.json`) — so if you've run `node scripts/connect-cli.mjs login`, the helper just works with no extra setup.
 
-In **Claude Code**, sign in once with the CLI and forget about tokens. The helper exits with **code 3** on any 401/403 — when that happens re-run `node scripts/connect-cli.mjs login` (it silently refreshes) and retry; only fall back to asking the user to paste a browser token if the CLI can't run (**Claude Chat**, token saved to `~/.cdata_token`). Never silently fail. Run `verify` first on the session's first workspace/toolkit request; if it prints `OK`, proceed.
+Sign in once with the CLI and forget about tokens. The helper exits with **code 3** on any 401/403 — when that happens re-run `node scripts/connect-cli.mjs login` (it silently refreshes) and retry. Admin is CLI-only, so there is no shell-less fallback (see [authentication.md](authentication.md)); if the CLI can't run, admin isn't available on this surface. Never silently fail. Run `verify` first on the session's first workspace/toolkit request; if it prints `OK`, proceed.
 
 The token is never printed back, pasted into chat, or committed anywhere.
 

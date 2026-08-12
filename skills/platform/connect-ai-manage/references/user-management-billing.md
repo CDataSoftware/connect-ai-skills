@@ -1,6 +1,6 @@
 # User Management, PATs & Billing
 
-Account administration via the Admin UI BFF (`/api/ui/*`): users (list / invite / edit / delete), roles, Personal Access Tokens, subscription and usage. **Auth:** the skill's normal Auth0 Bearer token — in **Claude Code** every operation below is a CLI command (auth handled automatically); in **Claude Chat** use the shown REST endpoint with the pasted browser token. A PAT can NOT call these endpoints (401).
+Account administration via the Admin UI BFF (`/api/ui/*`): users (list / invite / edit / delete), roles, Personal Access Tokens, subscription and usage. **Auth:** the skill's normal Auth0 Bearer token from the CLI (every operation below is a CLI command; auth handled automatically). The REST endpoints are shown for reference — call them directly with the CLI-obtained Auth0 token if you prefer raw HTTP. Admin is CLI-only; a PAT can NOT call these endpoints (401), and there is no shell-less path (see [authentication.md](authentication.md)).
 
 | Goal | CLI command | REST |
 |---|---|---|
@@ -322,11 +322,11 @@ On success render the card and say: *"Here's your profile."*
 
 ## Error handling
 
-- 401 → token expired/invalid — re-run `login` (CLI silently refreshes) or, in **Claude Chat**, ask for a fresh browser token.
+- 401 → token expired/invalid — re-run `login` (CLI silently refreshes). A PAT also 401s here — admin needs the Auth0 CLI token.
 - 403 → this user lacks permission for that endpoint (RBAC) — surface it, don't bypass.
 - 404 → endpoint or resource not found — double-check the URL/ID.
 - Other → surface the status code and raw error body.
 
 ## Security rules
 - Never log or echo full tokens (Bearer or PAT) in responses; mask PATs except at creation time (shown once by design).
-- A pasted Bearer token is **in-context only** — never written to any file, memory system, or storage. If the user asks to save it somewhere, politely decline.
+- No credential is ever written into a skill file or echoed into chat. The CLI caches the Auth0 token in the local token cache (`connect-auth.json`), and the bundled Python helpers may read `~/.cdata_token` — treat those files as sensitive. See [authentication.md](authentication.md#what-is-persisted).

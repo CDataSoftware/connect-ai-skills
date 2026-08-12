@@ -132,11 +132,9 @@ node scripts/connect-cli.mjs query "SELECT [Id] FROM [Cat].[S].[Case] WHERE [Sta
 
 ## When the CLI can't run
 
-The CLI needs a host that can run a Node process — the **Claude Code** bucket (also terminals, CI, agent runtimes). In the **Claude Chat** bucket (e.g. Claude.ai, Claude Desktop), fall back to:
-- **paste a Bearer token** and call the REST endpoints in [operations.md](operations.md) / [endpoints.md](endpoints.md) with the host's HTTP tool, or
-- have the **user run these same CLI commands** on their machine and paste results back.
+The CLI needs a host that can run a Node process — the **Claude Code** bucket (also terminals, CI, agent runtimes). Admin is **CLI-only**: the admin plane needs an Auth0 token that only the CLI browser sign-in provides (a PAT is rejected on `/api/ui/*`), so on a shell-less surface (Claude Chat) admin is **not available** — do not scrape an Auth0 token from DevTools. The one option is to have the **user run these CLI commands** on their own machine and paste results back. (Shell-less *data* work is the `connect-ai-direct` skill, via a PAT.)
 
-See SKILL.md Step 0. The CLI never uses a pre-wired MCP connector (ground rule 2).
+See SKILL.md Step 0 and [authentication.md](authentication.md). The CLI never uses a pre-wired MCP connector (ground rule 2).
 
 ---
 

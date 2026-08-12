@@ -145,4 +145,4 @@ Verified from `CDataConnectMetadataUtil` (`SPPARAM_DIRECT_*`). **Note the order 
 
 ## Translating plain English to SQL
 
-This skill does NL→SQL **client-side**: discover the schema (3a), then write the SQL yourself and run it via `/api/query`. This is more reliable than the portal's `/api/ui/openai/query` endpoint, whose request contract is not publicly stable (see [edge-cases.md](edge-cases.md#nl-sql)). Always show the user the SQL you generated before running a write.
+This skill does NL→SQL **client-side**: discover the schema (3a), then write the SQL yourself and run it via `/api/query`. The portal's `/api/ui/openai/*` NL→SQL routes were removed from the product on 2026-07-31 (see [edge-cases.md](edge-cases.md#nl-sql)), so client-side is the path. Always show the user the SQL you generated before running a write.

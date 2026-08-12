@@ -142,7 +142,7 @@ node scripts/connect-cli.mjs exec --procedure Cat.Schema.MyProc \
 
 > **`affectedRows: 0`?** Your `WHERE` matched nothing, or you tried to write a read-only column. Re-check with 2a.
 
-> **Plain-English requests:** discover the schema (2a), compose SQL yourself, then run 2b/2c. Do NL→SQL client-side — the portal's server-side NL→SQL endpoint isn't a stable contract.
+> **Plain-English requests:** discover the schema (2a), compose SQL yourself, then run 2b/2c. Do NL→SQL client-side — the portal's server-side NL→SQL routes (`/api/ui/openai/*`) were removed from the product on 2026-07-31.
 
 ## Safety rails
 

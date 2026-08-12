@@ -12,7 +12,7 @@ Every claim here was **verified live against `cloud.cdata.com` on 2026-06-02** u
 | **HTTP 200 with `error` populated** | Query/request failed; `error.code` is a **string** (`INVALID_REQUEST`, …) | Inspect `error.message`; fix SQL/params. Never assume 200 = success. |
 | `400` on `/api/schemas?catalogName=X` | The *data source's* vendor OAuth expired (not your token) | [Stale catalog](#stale-catalog) — pick a live catalog or have the owner reconnect. |
 | `400` on `/api/ui/overview/accountStats` | Missing required query params | Add `?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`. |
-| `400` on `/api/ui/openai/query` | Request body contract not matched | [NL→SQL](#nl-sql) — do client-side NL→SQL instead. |
+| `/api/ui/openai/*` gone | Routes removed from the product (2026-07-31) | [NL→SQL](#nl-sql) — do client-side NL→SQL instead. |
 | `403` | RBAC — the signed-in user lacks the right | Surface it; ask an admin to grant Select/Insert/Update/Execute on the catalog. |
 | `404` on a table/column | Driver case-sensitivity or wrong name | Re-run `/api/tables` / `/api/columns`; match exact case. |
 | **`<!doctype html>` (HTTP 200)** | SPA-routing trap — browser path, not API | [SPA trap](#spa-trap) — use `/api/*`. |
@@ -55,11 +55,11 @@ Every claim here was **verified live against `cloud.cdata.com` on 2026-06-02** u
 ---
 
 <a id="nl-sql"></a>
-## NL→SQL endpoint (`/api/ui/openai/query`)
+## NL→SQL endpoint (`/api/ui/openai/query`) — removed from the product
 
-Returned **`400`** for every request-body shape tried (`{prompt,context}`, `{question,connectionName}`, `{query,catalog,schema}`, `{naturalLanguageQuery,connection}`, `{text,connection,schema}`). It is **not** feature-gated for the account (feature-switches showed no AI flag controlling it), so the 400 is a body-contract mismatch the public surface doesn't document stably.
+The `/api/ui/openai/*` routes were **removed from the product on 2026-07-31** and no longer exist. (An earlier 2026-06-02 check recorded `400`s for every body shape tried; that was the endpoint rejecting a body contract before it was deleted.)
 
-**Recommendation:** do NL→SQL **client-side** — discover the schema (`/api/schemas`→`/api/tables`→`/api/columns` or `schemaOnly:true`), compose the SQL yourself, then run it on `/api/query`. This is fully under your control and avoids the brittle endpoint. If a user truly needs the server endpoint, capture the exact request the portal sends from DevTools and mirror it. The SSE `POST /api/data-copilot/assist` is the other server-side option.
+**Recommendation:** do NL→SQL **client-side** — discover the schema (`/api/schemas`→`/api/tables`→`/api/columns` or `schemaOnly:true`), compose the SQL yourself, then run it on `/api/query`. This is fully under your control. The SSE `POST /api/data-copilot/assist` is the other server-side option if one is ever needed.
 
 ---
 
@@ -254,7 +254,7 @@ Not exercised live (by design): user invite/delete against real users (sends ema
 | Test | Result |
 |---|---|
 | `POST /api/async/query` | ⚠️ 401, `WWW-Authenticate: Basic` (async needs PAT) |
-| `POST /api/ui/openai/query` (5 body shapes) | ⚠️ 400 each (contract mismatch) |
+| `POST /api/ui/openai/query` (5 body shapes) | ⚠️ 400 each (2026-06-02); routes since **removed from the product** (2026-07-31) |
 | `POST /api/ui/account/connections` with `{name,driver,properties}` (lowercase) | ⚠️ 500 — **wrong body shape** |
 | `POST /api/ui/account/connections` with portal body (PascalCase + `Props` + `UserId`/`Permissions`) | ✅ 200 — created (`isTested:false`); confirmed by HAR + live create of `AnkSales` |
 | `PUT /api/ui/connection/testConnection` (any shape) | ⚠️ 500 — portal doesn't use it; verify by listing schemas instead |

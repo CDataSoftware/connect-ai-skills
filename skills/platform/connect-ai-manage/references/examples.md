@@ -163,7 +163,7 @@ node scripts/connect-cli.mjs connection-create --name SF_Prod --driver Salesforc
 node scripts/connect-cli.mjs connection-test --name SF_Prod                           # re-verify anytime
 ```
 
-**Claude Chat (raw HTTP) — the exact body shape the portal sends (PascalCase; driver settings under `Props`):**
+**Raw HTTP (with the CLI-obtained Auth0 token) — the exact body shape the portal sends (PascalCase; driver settings under `Props`):**
 ```jsonc
 POST /api/ui/account/connections
 {
@@ -174,7 +174,7 @@ POST /api/ui/account/connections
   "Name": "SF_Prod",
   "OAuthProps": {}, "OnPremOptions": {}, "WalletFileContent": "",
   "UserId": "<your id from GET /api/ui/users/self>",
-  "Permissions": [ { "userId": "<your id>", "opsAllowed": 1 } ],
+  "Permissions": [ { "userId": "<your id>", "opsAllowed": 15 } ],
   "Props": { "AuthScheme": "Basic", "User": "me@org.com", "Password": "***",
              "SecurityToken": "***", "credentials": "shared" }
 }
@@ -189,10 +189,13 @@ POST /api/ui/account/connections
 $ws = Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/workspaces" `
   -Headers $H -ContentType "application/json" -Body (@{ name="SalesforceAnalytics" } | ConvertTo-Json)
 
-Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/workspaces/$($ws.id)/assets/fromConnection" `
-  -Headers $H -ContentType "application/json" -Body (@{
-    connectionId = "<connId>"; catalog = "Salesforce1"; schema = "Salesforce"; tables = @("Account","Contact","Case")
-  } | ConvertTo-Json)
+# Add assets with the batch endpoint. Body is { Records: [ ... ] }, one record per table
+# (fields: AssetType, ConnectionId, DataAssetCategory, ParentId, SchemaName, TableName — what the UI sends).
+$records = @("Account","Contact","Case") | ForEach-Object {
+  @{ AssetType = 1; ConnectionId = "<connId>"; DataAssetCategory = 1; ParentId = $null; SchemaName = "Salesforce"; TableName = $_ }
+}
+Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/workspaces/$($ws.id)/assets/fromConnection/batch" `
+  -Headers $H -ContentType "application/json" -Body (@{ Records = @($records) } | ConvertTo-Json -Depth 6)
 ```
 
 ---
@@ -210,9 +213,22 @@ $pat = Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/users/self
 
 ## 12. Invite a user (admin)
 
+Use `inviteNewUserList` (the portal's invite path). `role` is a **system role integer id**, not a string; see [user-management-billing.md](user-management-billing.md) for the guided flow and full body.
+
 ```powershell
-Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/users/invite" `
-  -Headers $H -ContentType "application/json" -Body (@{ emails=@("new@example.com"); role="user" } | ConvertTo-Json)
+$body = @{
+  email = "new@example.com"
+  role  = 3                     # system role integer id (not a string)
+  isInvite = $true
+  canBeImpersonated = $false
+  canImpersonateAsSupport = $false
+  managedByScim = $false
+  spreadsheetsUser = $false
+  customRoleIds = @()
+  permissions = @()             # [{ connectionId, opsAllowed }] to scope connection access
+} | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/user/inviteNewUserList" `
+  -Headers $H -ContentType "application/json" -Body $body
 ```
 
 ---

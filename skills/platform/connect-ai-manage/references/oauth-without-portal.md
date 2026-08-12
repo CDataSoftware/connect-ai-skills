@@ -1,6 +1,6 @@
 # OAuth without the portal — scripted browser-handshake flow
 
-> **Where `$jwt` comes from:** the skill's normal Auth0 sign-in — `$jwt = & .\scripts\cdata-connect-auth.ps1` (shares the token cache with `connect-cli.mjs login`), or the pasted browser token in **Claude Chat**. The CLI's `oauth-start` / `oauth-finish` commands wrap this handshake — see [cli.md](cli.md).
+> **Where `$jwt` comes from:** the skill's normal Auth0 sign-in — `$jwt = & .\scripts\cdata-connect-auth.ps1` (shares the token cache with `connect-cli.mjs login`). Admin is CLI-only (see [authentication.md](authentication.md)). The CLI's `oauth-start` / `oauth-finish` commands wrap this handshake — see [cli.md](cli.md).
 
 **Use this when the user wants to authenticate an OAuth connection without clicking "Sign In" in the portal Edit page.** It replicates exactly what the portal does, using the admin **BFF** endpoints (Bearer JWT only). Discovered from a portal HAR capture (GoogleSheets + Instagram), verified live.
 

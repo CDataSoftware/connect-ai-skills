@@ -1,6 +1,6 @@
 # OAuth local helper — one-shot scripted sign-in (no chat paste, no manual decode)
 
-> **Where `$jwt` comes from:** the skill's normal Auth0 sign-in — `$jwt = & .\scripts\cdata-connect-auth.ps1` (shares the token cache with `connect-cli.mjs login`), or the pasted browser token in **Claude Chat**. The CLI's `oauth-start` / `oauth-finish` commands wrap this handshake — see [cli.md](cli.md).
+> **Where `$jwt` comes from:** the skill's normal Auth0 sign-in — `$jwt = & .\scripts\cdata-connect-auth.ps1` (shares the token cache with `connect-cli.mjs login`). Admin is CLI-only (see [authentication.md](authentication.md)). The CLI's `oauth-start` / `oauth-finish` commands wrap this handshake — see [cli.md](cli.md).
 
 Removes the friction of the manual flow. Runs a tiny **local web page + listener** on the user's machine that:
 1. Calls `getAuthorizationUrl` and **auto-opens** the provider login.
