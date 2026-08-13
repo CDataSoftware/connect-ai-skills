@@ -218,7 +218,7 @@ Use `inviteNewUserList` (the portal's invite path). `role` is a **system role in
 ```powershell
 $body = @{
   email = "new@example.com"
-  role  = 3                     # system role integer id (not a string)
+  role  = 1                     # system role integer id (1 = Query; Admin=0, ConnectionAdmin=5, UserAdmin=6). Not a string. Avoid 3 (ServiceUser, an internal OEM role).
   isInvite = $true
   canBeImpersonated = $false
   canImpersonateAsSupport = $false
@@ -226,6 +226,7 @@ $body = @{
   spreadsheetsUser = $false
   customRoleIds = @()
   permissions = @()             # [{ connectionId, opsAllowed }] to scope connection access
+  workspacePermissions = @()    # [{ workspaceId, opsAllowed }] to scope workspace access
 } | ConvertTo-Json -Depth 6
 Invoke-RestMethod -Method Post "https://cloud.cdata.com/api/ui/user/inviteNewUserList" `
   -Headers $H -ContentType "application/json" -Body $body

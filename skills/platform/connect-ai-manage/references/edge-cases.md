@@ -8,7 +8,7 @@ Every claim here was **verified live against `cloud.cdata.com` on 2026-06-02** u
 
 | HTTP / signal | Cause | Fix |
 |---|---|---|
-| `401` on `/api/*` or `/api/ui/*` | Auth0 token missing or expired (24 h TTL) | Re-run the auth script (auto-refreshes) or re-capture via DevTools. See [authentication.md](authentication.md). |
+| `401` on `/api/ui/*` | Auth0 token missing or expired (24 h TTL) | Re-run the CLI `login` — it auto-refreshes. Admin is CLI-only; do not scrape a token from DevTools. See [authentication.md](authentication.md). |
 | **HTTP 200 with `error` populated** | Query/request failed; `error.code` is a **string** (`INVALID_REQUEST`, …) | Inspect `error.message`; fix SQL/params. Never assume 200 = success. |
 | `400` on `/api/schemas?catalogName=X` | The *data source's* vendor OAuth expired (not your token) | [Stale catalog](#stale-catalog) — pick a live catalog or have the owner reconnect. |
 | `400` on `/api/ui/overview/accountStats` | Missing required query params | Add `?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`. |
