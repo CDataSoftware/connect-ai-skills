@@ -91,11 +91,21 @@ Stage, pipeline, and owner columns hold ids rather than display text. Whether yo
 
 The format of the stored value varies by object as well as by surface — a deal's stage may be a readable internal name (`closedwon`) while a ticket's status on the same connection is a bare numeric id. Sample the column before assuming either.
 
-### Updates work; creating records does not
+### Creating a record goes through a Source Tool, never a raw `INSERT`
 
-`UPDATE` against the object tables works on all three surfaces. `INSERT` does **not** — the object tables declare their primary key (`Id`, or `VID` / `DealId` on legacy) as required with no default, so an insert that omits it is rejected and one that supplies it would not be a create.
+`UPDATE` against the object tables works on all three surfaces, because the primary key is supplied in the `WHERE` clause. A raw `INSERT` does **not** work anywhere: HubSpot assigns each record's primary key server-side and exposes that column as read-only, while the insert path requires a value for every non-nullable column that has no default and does not skip the read-only key. The statement is rejected before the driver sees it.
 
-When a user asks to create a record, say so plainly rather than retrying variants or inventing a key value. Offer the alternatives: update an existing record, create it in the HubSpot UI, or use a dedicated Source Tool for creation if this session provides one. Two exceptions are worth knowing: the legacy surface can create **engagements** via `InsertEngagement`, and V3 can create **metadata** (custom object types and custom properties) via its `Create*` procedures. A read-only connection is a separate, unrelated cause of blocked writes.
+**This is a property of the insert path, not a limit on creating records.** Creation is supported through the connection's dedicated create tool for the object — contacts, companies, deals, tickets, and engagements each have one — which reaches the driver by a path that lets HubSpot generate the key.
+
+- **Never supply the primary key** on a create.
+- If a raw `INSERT` has already produced an error naming the key column as *"neither nullable nor has a default value"*, treat it as a signal to switch paths. Do not retry with variants, do not conclude creation is impossible, and do not invent a key value.
+- **Confirm a create by reading the record back** by the id the tool returns, rather than trusting the success response.
+- If no create tool is listed in this session, say plainly that creation is unavailable here and offer the alternatives — update an existing record, or create it in the HubSpot UI.
+- A **read-only connection** is a separate and unrelated cause of blocked writes. Do not send a user to change connection settings over an insert-path error.
+
+Two procedure-level exceptions sidestep this entirely: the legacy surface creates **engagements** via `InsertEngagement`, and V3 creates **metadata** (custom object types and custom properties) via its `Create*` procedures.
+
+Primary key names vary by surface and object: `Id` on V3 and V4; on legacy, `VID` on contacts, `CompanyId` on companies, `DealId` on deals, and `Id` on tickets and most others.
 
 ### Custom properties are the norm
 
