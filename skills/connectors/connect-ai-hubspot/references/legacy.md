@@ -125,7 +125,7 @@ Also note **`DealStages` is not a stage-definition table** on this surface — i
 
 ### CrmAssociations
 - `FromObjectId` — the source record's id; **required as a filter**
-- `DefinitionId` — the relationship type; **required as a filter**
+- `DefinitionId` — the relationship type; **required as a filter**. Several usually exist per object pair; discover them via a `HubSpotV3` connection's `AssociationsTypes`
 - `ToObjectId` — the related record's id
 - `Category` — the association category
 
@@ -178,12 +178,16 @@ LIMIT 25
 ```
 
 ### A record's associations
-Both filters are required. `[DefinitionId]` selects which relationship type to return — enumerate the definition ids relevant to the portal before relying on a specific value.
+Both filters are required.
 ```sql
 SELECT [FromObjectId], [ToObjectId], [Category], [DefinitionId]
 FROM [YourConnection].[HubSpot].[CrmAssociations]
 WHERE [FromObjectId] = <deal-id> AND [DefinitionId] = 5
 ```
+`[DefinitionId]` selects **which relationship** you want, and an object pair usually has more than one. This surface has no lookup table for them, but they are discoverable elsewhere: query a `HubSpotV3` connection's `AssociationsTypes` (or a `HubSpotV4` connection's `AssociationsLabels`) for the same object pair and use the `[Id]` it returns. Contacts-to-companies, for instance, yields `1` (`company`, the labeled association), `279` (`company_unlabeled`), and portal-defined ids besides — and each returns a different set of companies for the same contact.
+
+Because of that, **name the relationship you queried** and treat one `[DefinitionId]` as a single view rather than the whole answer. Reporting the result of id `1` as "the" company a contact is linked to is wrong whenever an unlabeled association also exists.
+
 
 ### Discovering custom property labels
 ```sql
@@ -241,7 +245,7 @@ A Connect AI connection may also be set to read-only. If an update or stored pro
 - **Do not carry filter values from a V3 or V4 query.** Enum casing differs — `[Lifecycle Stage]` is `Opportunity` here and `opportunity` there. A mismatched value returns empty rather than erroring.
 - **Do not assume column names match the newer schemas.** The same concept is often named differently: stage labels are `[StageName]`, not `[Label]`.
 - **`DealStages` is stage-change rows, not definitions** — and it is filter-sensitive. For a readable stage label use `DealPipelineStages`. For how a deal moved through stages, read `DealStages` **without** a `[DealId]` filter, or use a `HubSpotV4` connection's `DealPropertiesHistory`. A `[DealId]` filter silently reduces it to the current stage, which reads as "this deal has no history" when it does.
-- **Several tables require filters.** `CrmAssociations` needs `[FromObjectId]` and `[DefinitionId]`; `EmailSubscriptions` needs an email; `FormSubmissions` needs a form.
+- **Several tables require filters.** `CrmAssociations` needs `[FromObjectId]` and `[DefinitionId]`; `EmailSubscriptions` needs an email; `FormSubmissions` needs a form. Get a `[DefinitionId]` from a `HubSpotV3` connection's `AssociationsTypes` rather than guessing, and name which relationship you used — an object pair usually has several.
 - **Prefer denormalized association columns when they answer the question.** `Engagements` carries `[AssociatedDeals]` and friends directly, which is simpler than a `CrmAssociations` lookup.
 - **Column naming mixes two styles.** CRM property columns use spaced display labels (`[Deal Name]`, `[Lifecycle Stage]`) while system and metadata columns are unspaced (`DealId`, `VID`, `StageName`) — both appear in the same table.
 - **Consider whether this is the right surface.** For CRM-centric questions, a `HubSpotV3` connection offers a richer object set, owner and team lookups, and list membership. Say so rather than working around a gap here.
