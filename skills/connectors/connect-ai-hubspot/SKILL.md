@@ -48,7 +48,9 @@ Each surface has its own reference with the full data model, query workflow, imp
 
 - **V3** → [references/v3.md](references/v3.md) — the full CRM object set, the `*Properties` / `*Pipelines` / `*PipelineStages` metadata families, `Owners` / `UserProvisioning` / `Teams` / `Roles`, `Lists` / `ListMemberships`, custom-object metadata, marketing and CMS tables, and the custom object/property and file procedures.
 - **V4** → [references/v4.md](references/v4.md) — the CRM object set, `*PropertiesHistory` views, `SubscriptionTypes` / `SubscriptionPreferences`, the subscription procedures, and what to do when a request needs owner names or stage labels this surface does not carry.
-- **Legacy** → [references/legacy.md](references/legacy.md) — the `VID` / `DealId` key model, the combined `Engagements` table, `CrmAssociations`, `DealPipelineStages` with its `StageId` / `StageName` columns, `DealStages` as change history, and the email-campaign, forms, analytics, social, and CMS tables.
+- **Legacy** → [references/legacy.md](references/legacy.md) — the `VID` / `DealId` key model, the combined `Engagements` table, `CrmAssociations` and how to obtain a `DefinitionId`, `DealPipelineStages` with its `StageId` / `StageName` columns, `DealStages` and the `[DealId]` filter that silently truncates it, and the email-campaign, forms, analytics, social, and CMS tables.
+
+Read the reference before writing queries for that surface. The summaries above name what each reference covers; they are not a substitute for it, and where a one-line summary and a reference appear to disagree, the reference is authoritative.
 
 The three-part name is always `[Catalog].[Schema].[Table]`:
 
