@@ -29,7 +29,7 @@ These five differences cause most failures when an agent arrives here carrying V
 | Associations | `*Associations` tables with `[Id]` / `[AssociationId]` / `[Type]` | **`CrmAssociations`**, requiring `[FromObjectId]` **and** `[DefinitionId]` |
 | Stage label column | `DealPipelineStages.[Label]`, keyed by `[Id]` | **`DealPipelineStages.[StageName]`, keyed by `[StageId]`** |
 
-Also note **`DealStages` is not a stage-definition table** on this surface — it is a per-deal stage *change history*. Numeric properties are typed `DOUBLE` rather than `DECIMAL`, so aggregate results may format differently.
+Also note **`DealStages` is not a stage-definition table** on this surface — it holds per-deal stage *change* rows. Read its caveat under Key Tables before querying it: filtering it by `[DealId]` silently returns only the current stage. Numeric properties are typed `DOUBLE` rather than `DECIMAL`, so aggregate results may format differently.
 
 ## Query Process
 
@@ -48,7 +48,7 @@ Also note **`DealStages` is not a stage-definition table** on this surface — i
 
 **Pipelines and stages**
 - **DealPipelines** / **DealPipelineStages** — pipeline and stage definitions. The stage key is `[StageId]` and the label is `[StageName]`, alongside `[PipelineId]`, `[PipelineName]`, `[StageDisplayOrder]`, `[StageProbability]`, `[StageClosedWon]`, and active flags.
-- **DealStages** — a per-deal stage *change history*, with `[DealId]`, `[StageCreated]`, `[StageValue]`, `[StageSource]`, `[StageSourceId]`. Use it for transition analysis, not for resolving a label.
+- **DealStages** — per-deal stage *change* rows, with `[DealId]`, `[StageCreated]`, `[StageValue]`, `[StageSource]`, `[StageSourceId]`. Not a label lookup. **Do not filter it by `[DealId]`:** that filter collapses the result to the deal's current stage only, and it does so silently — you get one plausible row and no indication that earlier transitions were dropped. Query it unfiltered (or filtered on something other than `[DealId]`) and narrow to the deal you want in the result. For a dependable stage history, a `HubSpotV4` connection's `DealPropertiesHistory` is the better source.
 
 **Engagements** — a single combined `Engagements` table. Discriminate with `[Type]` (values include `CALL`, `EMAIL`, `TASK`) and `[ActivityType]`. It carries denormalized association columns — `[AssociatedContacts]`, `[AssociatedCompanies]`, `[AssociatedDeals]`, `[AssociatedTickets]`, `[AssociatedOwners]`, `[AssociatedWorkflows]` — plus type-specific columns such as `[DurationMilliseconds]`, `[RecordingUrl]`, `[Disposition]`, `[MeetingOutcome]`, `[TaskType]`. Also **EngagementScheduledTasks**.
 
@@ -97,6 +97,7 @@ Also note **`DealStages` is not a stage-definition table** on this surface — i
 - `Deal Name`, `Amount`, `Deal Stage`, `Deal Type`, `Deal owner`
 - `AssociatedDealIds` — related deal ids
 - `Is Deal Closed?` — true when the deal was won or lost
+- `Is Open (numeric)` — 1 when neither closed won nor closed lost, 0 otherwise. Read-only; present on this surface too
 
 ### DealPipelineStages
 - `StageId` — the stage key that `Deals.[Deal Stage]` points at
@@ -150,11 +151,21 @@ ORDER BY [Value] DESC
 ```
 
 ### Deal stage transition history
+**Do not add a `[DealId]` filter here.** Filtering `DealStages` by `[DealId]` returns only that deal's current stage, with no error and no sign that the earlier rows were dropped. Read the table unfiltered and pick out the deal in the result:
+
 ```sql
 SELECT [DealId], [StageValue], [StageCreated], [StageSource]
 FROM [YourConnection].[HubSpot].[DealStages]
-WHERE [DealId] = <deal-id>
-ORDER BY [StageCreated] DESC
+ORDER BY [DealId], [StageCreated]
+```
+
+If the portal is large enough that reading the table whole is impractical, or you need history you can rely on, use a `HubSpotV4` connection instead:
+
+```sql
+SELECT [DealId], [PropertyName], [Value], [Timestamp], [SourceType]
+FROM [YourConnection].[HubSpotV4].[DealPropertiesHistory]
+WHERE [PropertyName] = 'dealstage' AND [DealId] = <deal-id>
+ORDER BY [Timestamp] DESC
 ```
 
 ### Engagement activity by type
@@ -229,7 +240,7 @@ A Connect AI connection may also be set to read-only. If an update or stored pro
 - **Do not assume `Id`.** Primary keys are `VID` on contacts and `DealId` on deals. Confirm with `getColumns` before writing a join.
 - **Do not carry filter values from a V3 or V4 query.** Enum casing differs — `[Lifecycle Stage]` is `Opportunity` here and `opportunity` there. A mismatched value returns empty rather than erroring.
 - **Do not assume column names match the newer schemas.** The same concept is often named differently: stage labels are `[StageName]`, not `[Label]`.
-- **`DealStages` is history, not definitions.** For a readable stage label use `DealPipelineStages`; for how a deal moved through stages use `DealStages`.
+- **`DealStages` is stage-change rows, not definitions** — and it is filter-sensitive. For a readable stage label use `DealPipelineStages`. For how a deal moved through stages, read `DealStages` **without** a `[DealId]` filter, or use a `HubSpotV4` connection's `DealPropertiesHistory`. A `[DealId]` filter silently reduces it to the current stage, which reads as "this deal has no history" when it does.
 - **Several tables require filters.** `CrmAssociations` needs `[FromObjectId]` and `[DefinitionId]`; `EmailSubscriptions` needs an email; `FormSubmissions` needs a form.
 - **Prefer denormalized association columns when they answer the question.** `Engagements` carries `[AssociatedDeals]` and friends directly, which is simpler than a `CrmAssociations` lookup.
 - **Column naming mixes two styles.** CRM property columns use spaced display labels (`[Deal Name]`, `[Lifecycle Stage]`) while system and metadata columns are unspaced (`DealId`, `VID`, `StageName`) — both appear in the same table.
