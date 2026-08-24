@@ -115,7 +115,7 @@ Portals can also define custom **objects**. With `IncludeCustomTables=true` they
 
 ### Some tables require a filter in the WHERE clause
 
-Several HubSpot tables error, or silently return nothing, without a specific filter — and in at least one case the required filter does not survive a join. Each reference names its own: `ListMemberships` on V3; `SubscriptionPreferences` and the `*PropertiesHistory` views on V4; `CrmAssociations`, `EmailSubscriptions`, and `FormSubmissions` on legacy. When a table reports a required column, supply it rather than removing filters.
+Several HubSpot tables error, or silently return nothing, without a specific filter. Others do the reverse: a predicate on a perfectly readable column silently returns nothing (`ListMemberships.[ObjectTypeId]` on V3). Each reference names its own: `ListMemberships` on V3 (needs `[ListId]`, must not be filtered on `[ObjectTypeId]`); `SubscriptionPreferences` and the `*PropertiesHistory` views on V4; `CrmAssociations`, `EmailSubscriptions`, and `FormSubmissions` on legacy. Legacy `DealStages` is the mirror image — a `[DealId]` filter silently truncates it. When a table reports a required column, supply it rather than removing filters.
 
 Which filters are required is itself surface-specific — the `*PropertiesHistory` views need a `[PropertyName]` filter on V4 but not on V3. Trust the error message over any assumption carried from another surface.
 
