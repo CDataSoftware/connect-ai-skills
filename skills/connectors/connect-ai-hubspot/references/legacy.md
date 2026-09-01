@@ -125,7 +125,7 @@ Also note **`DealStages` is not a stage-definition table** on this surface — i
 
 ### CrmAssociations
 - `FromObjectId` — the source record's id; **required as a filter**
-- `DefinitionId` — the relationship type; **required as a filter**. Several usually exist per object pair; discover them via a `HubSpotV3` connection's `AssociationsTypes`
+- `DefinitionId` — the relationship type; **required as a filter**. Several usually exist per object pair; discover them via a `HubSpotV3` connection's `AssociationsTypes` (`[Id]`) or a `HubSpotV4` connection's `AssociationsLabels` (`[TypeId]`)
 - `ToObjectId` — the related record's id
 - `Category` — the association category
 
@@ -184,7 +184,14 @@ SELECT [FromObjectId], [ToObjectId], [Category], [DefinitionId]
 FROM [YourConnection].[HubSpot].[CrmAssociations]
 WHERE [FromObjectId] = <deal-id> AND [DefinitionId] = 5
 ```
-`[DefinitionId]` selects **which relationship** you want, and an object pair usually has more than one. This surface has no lookup table for them, but they are discoverable elsewhere: query a `HubSpotV3` connection's `AssociationsTypes` (or a `HubSpotV4` connection's `AssociationsLabels`) for the same object pair and use the `[Id]` it returns. Contacts-to-companies, for instance, yields `1` (`company`, the labeled association), `279` (`company_unlabeled`), and portal-defined ids besides — and each returns a different set of companies for the same contact.
+`[DefinitionId]` selects **which relationship** you want, and an object pair usually has more than one. This surface has no lookup table for them, but they are discoverable elsewhere — on either of the other two surfaces, whose views hold the id in a **differently named column**:
+
+| Where to look | View | Id column to use as `[DefinitionId]` |
+|---|---|---|
+| A `HubSpotV3` connection | `AssociationsTypes` | `[Id]` |
+| A `HubSpotV4` connection | `AssociationsLabels` | **`[TypeId]`** |
+
+Filter either view by `[FromObjectType]` and `[ToObjectType]` (lowercase plural). Contacts-to-companies, for instance, yields `1` (`company`, the labeled association), `279` (`company_unlabeled`), and portal-defined ids besides — and each returns a different set of companies for the same contact.
 
 Because of that, **name the relationship you queried** and treat one `[DefinitionId]` as a single view rather than the whole answer. Reporting the result of id `1` as "the" company a contact is linked to is wrong whenever an unlabeled association also exists.
 
