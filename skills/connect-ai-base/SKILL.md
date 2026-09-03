@@ -30,6 +30,8 @@ If the server is not connected:
 
 **If you are running in Claude Code** and the user wants to set Connect AI up for the first time (no account, no MCP server registered, or asking how to connect), hand off to the onboarding skill: invoke `connect-ai-onboarding-claude-code`. It walks through sign-up, registering the MCP server, connecting a data source, and a first query. Once the user completes it and restarts, re-running the original request will find the tools via this Step 0 and proceed normally.
 
+**If the user can't or won't set up an MCP connector** but can still reach `cloud.cdata.com` (via the CLI browser sign-in on a shell, or a PAT on a shell-less surface), you can query/write data over the raw REST API instead: use the `connect-ai-direct` skill. Note the trade-off — the direct path is discovery-only (no `getInstructions` guidance), so this MCP path is preferred whenever a connector *is* available. For **platform administration** (connections, users, jobs, workspaces, toolkits, PATs, billing), use `connect-ai-manage`.
+
 On any other surface — or if the user only wants documentation — direct them to the CData Connect AI integration documentation: https://docs.cloud.cdata.com/en/Integrations#ai-tools. To configure a data source connection within Connect AI, refer to: https://docs.cloud.cdata.com/en/Sources#add-a-connection
 
 ## Connect AI MCP — Core Discovery Workflow
