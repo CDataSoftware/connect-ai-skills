@@ -11,10 +11,10 @@
  *   node connect-cli.mjs catalogs
  *   node connect-cli.mjs query "SELECT [Id],[Name] FROM [Cat].[Schema].[Table] LIMIT 10"
  *
- * Auth: Auth0 only (the embedded driver OAuth client + oauth.cdata.com bounce
- * server). No PAT. Tokens cache in the same file the PowerShell helper uses, so
- * one sign-in serves both. Output is JSON on stdout; errors are {"error":"..."}
- * on stdout with exit code 1. Diagnostics go to stderr.
+ * Auth: Auth0 only, via Authorization Code + PKCE against a public OAuth client
+ * (no client secret). No PAT. Tokens cache locally under %LOCALAPPDATA%\CData so
+ * one sign-in serves later calls. Output is JSON on stdout; errors are
+ * {"error":"..."} on stdout with exit code 1. Diagnostics go to stderr.
  *
  * Publishable later as @cdata/connect-cli (add package.json + bin) with no code
  * change — then `npx @cdata/connect-cli <cmd>`.
@@ -34,13 +34,14 @@ import { URL, URLSearchParams } from 'node:url';
 // ---------------------------------------------------------------------------
 const AUTH_DOMAIN      = 'https://cloud-login.cdata.com';
 const AUDIENCE         = 'https://cloud.cdata.com/api';
-const SCOPE            = 'offline_access';
-const REGISTERED_REDIR = 'https://oauth.cdata.com/oauth/';
+const SCOPE            = 'openid profile email offline_access';
+const REDIRECT         = 'https://oauth.cdata.com/oauth';   // must exactly match a callback URL on the OAuth App
 const DEFAULT_API_BASE = 'https://cloud.cdata.com';
-const DEFAULT_PORT     = 33333;
-// Embedded driver OAuth client (AES-128-ECB/PKCS7, key "_rssbus_" padded to 16).
-const ENC_CLIENT_ID     = 'sXU4nPhfXkEJOYXFG2fXu6B+jx1SxAql3vxq77zvc1NaIeCMmgRgQMcd2XGT537i';
-const ENC_CLIENT_SECRET = 'WLdy5OMuJCpMnlc6cdX7PNQx9hX/+gCEc4Hh9LnsW3T7VL2bwh9SyFP9y5n8vxl7S8rTB98ETv4ucYumgl6R41oh4IyaBGBAxx3ZcZPnfuI=';
+const DEFAULT_PORT     = 33334;
+// Public OAuth client (Single Page App) — Authorization Code + PKCE, NO client secret.
+// PKCE replaces the secret with a per-login code_verifier. Override the id with the
+// CDATA_PKCE_CLIENT_ID env var if the OAuth App is ever recreated.
+const CLIENT_ID = process.env.CDATA_PKCE_CLIENT_ID || '7sXB4AwuiEZcBZH0P61h8PFKvH6d0Aoo';
 
 let API_BASE = DEFAULT_API_BASE;
 
@@ -54,15 +55,25 @@ function cacheFile() {
   return path.join(os.homedir(), '.config', 'CData', 'connect-auth.json');
 }
 
-function decryptCred(b64) {
-  const key = Buffer.from('_rssbus_        ', 'ascii'); // 16 bytes
-  const d = crypto.createDecipheriv('aes-128-ecb', key, null);
-  d.setAutoPadding(true); // PKCS7
-  return Buffer.concat([d.update(Buffer.from(b64, 'base64')), d.final()]).toString('utf8').replace(/\s+$/, '');
+function newPkce() {
+  const verifier = crypto.randomBytes(48).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  return { verifier, challenge };
 }
-function creds() {
-  return { clientId: decryptCred(ENC_CLIENT_ID), clientSecret: decryptCred(ENC_CLIENT_SECRET) };
+function authorizeUrl(challenge, state) {
+  return `${AUTH_DOMAIN}/authorize?` + new URLSearchParams({
+    response_type: 'code', client_id: CLIENT_ID, redirect_uri: REDIRECT,
+    scope: SCOPE, audience: AUDIENCE,
+    code_challenge: challenge, code_challenge_method: 'S256', state,
+  }).toString();
 }
+// The oauth.cdata.com bounce base64-encodes the code when forwarding to localhost;
+// a directly pasted redirect URL carries it plain. Accept either.
+function normalizeCode(raw) {
+  try { const dec = Buffer.from(raw, 'base64').toString('utf8'); if (dec && /^[\x21-\x7e]+$/.test(dec)) return dec; } catch { /* fall through */ }
+  return raw;
+}
+function pendingLoginFile() { return path.join(path.dirname(cacheFile()), 'connect-login-pending.json'); }
 
 function httpRequest(urlStr, { method = 'GET', headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
@@ -111,14 +122,16 @@ function openBrowser(url) {
   exec(cmd, () => {});
 }
 
-function browserLogin(c, port = DEFAULT_PORT, timeoutSec = 300) {
+// Authorization Code + PKCE, public client. `state` carries the local return
+// address so the oauth.cdata.com bounce can forward the code here; PKCE binds the
+// code to this login's verifier (a stolen code is useless without it). If the bounce
+// can't reach this machine, use login-start / login-finish (paste the redirect URL).
+function browserLogin(port = DEFAULT_PORT, timeoutSec = 300) {
   return new Promise((resolve, reject) => {
+    const { verifier, challenge } = newPkce();
     const localUrl = `http://localhost:${port}`;
     const state = Buffer.from(localUrl, 'utf8').toString('base64');
-    const authUrl = `${AUTH_DOMAIN}/authorize?audience=${encodeURIComponent(AUDIENCE)}`
-      + `&scope=${encodeURIComponent(SCOPE)}&state=${encodeURIComponent(state)}`
-      + `&client_id=${encodeURIComponent(c.clientId)}&response_type=code`
-      + `&redirect_uri=${encodeURIComponent(REGISTERED_REDIR)}`;
+    const authUrl = authorizeUrl(challenge, state);
     let timer;
     const server = http.createServer(async (req, res) => {
       try {
@@ -131,22 +144,53 @@ function browserLogin(c, port = DEFAULT_PORT, timeoutSec = 300) {
         server.close(); clearTimeout(timer);
         if (err) return reject(new Error(`Auth0 error: ${err} ${u.searchParams.get('error_description') || ''}`));
         if (!code) return reject(new Error(`No code in callback: ${req.url}`));
-        const realCode = Buffer.from(code, 'base64').toString('utf8'); // bounce server base64-encodes it
         const tok = await tokenRequest({
-          grant_type: 'authorization_code', client_id: c.clientId, client_secret: c.clientSecret,
-          code: realCode, redirect_uri: REGISTERED_REDIR,
+          grant_type: 'authorization_code', client_id: CLIENT_ID,
+          code: normalizeCode(code), redirect_uri: REDIRECT, code_verifier: verifier,
         });
         resolve(tok);
       } catch (e) { try { server.close(); } catch {} reject(e); }
     });
     server.on('error', reject);
     server.listen(port, '127.0.0.1', () => {   // loopback only — the OAuth callback comes from localhost; do not expose on the LAN
-      process.stderr.write(`cdata-connect: opening browser for sign-in...\n`);
+      process.stderr.write(`cdata-connect: opening browser for sign-in (PKCE, no client secret)...\n`);
       process.stderr.write(`cdata-connect: if it doesn't open, visit:\n${authUrl}\n`);
+      process.stderr.write(`cdata-connect: if the browser can't reach this machine, use: login-start then login-finish "<redirect URL>"\n`);
       openBrowser(authUrl);
     });
-    timer = setTimeout(() => { try { server.close(); } catch {} reject(new Error(`Timed out after ${timeoutSec}s waiting for sign-in.`)); }, timeoutSec * 1000);
+    timer = setTimeout(() => { try { server.close(); } catch {} reject(new Error(`Timed out after ${timeoutSec}s. Use login-start then login-finish "<redirect URL>" to paste the code instead.`)); }, timeoutSec * 1000);
   });
+}
+
+// Two-step login for non-interactive callers (agents): login-start prints the
+// authorize URL and stores the pending verifier + a random CSRF state; login-finish
+// validates the returned state and exchanges the code against the stored verifier.
+async function loginStart() {
+  const { verifier, challenge } = newPkce();
+  const state = crypto.randomBytes(16).toString('base64url');
+  fs.mkdirSync(path.dirname(pendingLoginFile()), { recursive: true });
+  fs.writeFileSync(pendingLoginFile(), JSON.stringify({ verifier, state, started: new Date().toISOString() }), { mode: 0o600 });
+  const url = authorizeUrl(challenge, state);
+  openBrowser(url);
+  return { status: 'awaiting-sign-in', authorize_url: url,
+    next: 'Have the user sign in, then run: login-finish "<full redirect URL>" (codes expire in ~60s).' };
+}
+async function loginFinish(arg) {
+  if (!arg) throw new Error('Usage: login-finish "<redirect-url-or-code>"');
+  let pending;
+  try { pending = JSON.parse(fs.readFileSync(pendingLoginFile(), 'utf8')); }
+  catch { throw new Error('No pending login. Run login-start first.'); }
+  let raw = arg, st = null;
+  try { const u = new URL(arg); raw = u.searchParams.get('code') || arg; st = u.searchParams.get('state'); } catch { /* bare code pasted */ }
+  if (st && st !== pending.state) throw new Error('State mismatch — this redirect URL is not from the pending login-start. Run login-start again.');
+  const now = Math.floor(Date.now() / 1000);
+  const t = await tokenRequest({
+    grant_type: 'authorization_code', client_id: CLIENT_ID,
+    code: normalizeCode(raw), redirect_uri: REDIRECT, code_verifier: pending.verifier,
+  });
+  try { fs.rmSync(pendingLoginFile()); } catch { /* ignore */ }
+  writeCache({ access_token: t.access_token, refresh_token: t.refresh_token, expires_at: now + (t.expires_in || 86400) });
+  return { status: 'signed-in', method: 'authorization_code + PKCE (S256), public client', refresh_token_cached: !!t.refresh_token };
 }
 
 // `silent: true` makes this a non-interactive check — it uses the cache or a
@@ -154,7 +198,6 @@ function browserLogin(c, port = DEFAULT_PORT, timeoutSec = 300) {
 // `status`/preflight command relies on this so "is there an active session?"
 // can be answered without forcing a sign-in.
 async function ensureToken({ fromScratch = false, port = DEFAULT_PORT, silent = false } = {}) {
-  const c = creds();
   const now = Math.floor(Date.now() / 1000);
   if (fromScratch && !silent) clearCache();
   else {
@@ -163,7 +206,7 @@ async function ensureToken({ fromScratch = false, port = DEFAULT_PORT, silent = 
       if ((cached.expires_at || 0) - now > 300) return cached.access_token;
       if (cached.refresh_token) {
         try {
-          const t = await tokenRequest({ grant_type: 'refresh_token', client_id: c.clientId, client_secret: c.clientSecret, refresh_token: cached.refresh_token });
+          const t = await tokenRequest({ grant_type: 'refresh_token', client_id: CLIENT_ID, refresh_token: cached.refresh_token });
           writeCache({ access_token: t.access_token, refresh_token: t.refresh_token || cached.refresh_token, expires_at: now + (t.expires_in || 86400) });
           return t.access_token;
         } catch (e) {
@@ -174,7 +217,7 @@ async function ensureToken({ fromScratch = false, port = DEFAULT_PORT, silent = 
     } else if (silent) return null;   // no cached session, won't open a browser
   }
   if (silent) return null;
-  const t = await browserLogin(c, port);
+  const t = await browserLogin(port);
   writeCache({ access_token: t.access_token, refresh_token: t.refresh_token, expires_at: now + (t.expires_in || 86400) });
   return t.access_token;
 }
@@ -318,7 +361,9 @@ Usage: node connect-cli.mjs <command> [options]
 
 Auth:
   status | preflight                  Check for an ACTIVE Connect AI session + connections (silent; no browser). Run first.
-  login [--from-scratch] [--port N]   Sign in via Auth0 (browser once; cached + refreshed)
+  login [--from-scratch] [--port N]   Sign in via Auth0 (Authorization Code + PKCE, no secret; browser once; cached + refreshed)
+  login-start                         Print the authorize URL + open the browser (agent flow; saves the pending verifier)
+  login-finish "<redirect URL>"       Finish login-start: exchange the pasted redirect URL (validates state; codes expire ~60s)
   logout                              Clear the cached token (same as login --from-scratch next time)
   whoami                              Show the signed-in user (verifies data + admin access)
 
@@ -406,6 +451,8 @@ async function main() {
       out({ status: 'signed-in', user: me?.email || me?.userId || me?.name || me, catalogs: n }, args);
       return;
     }
+    case 'login-start': { out(await loginStart(), args); return; }
+    case 'login-finish': { out(await loginFinish(args._[1]), args); return; }
     case 'logout': { out({ status: clearCache() ? 'logged-out' : 'no-cached-token' }, args); return; }
     case 'whoami': { out(await api('GET', '/api/ui/users/self'), args); return; }
 

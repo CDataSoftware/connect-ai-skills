@@ -59,7 +59,7 @@ GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 
 
 def _cli_cache_token():
-    """Fall back to the Auth0 token cached by connect-cli.mjs / cdata-connect-auth.ps1
+    """Fall back to the Auth0 token cached by connect-cli.mjs
     (one browser sign-in serves the CLI, the PowerShell helper, and this script)."""
     if sys.platform == "win32" and os.environ.get("LOCALAPPDATA"):
         path = os.path.join(os.environ["LOCALAPPDATA"], "CData", "connect-auth.json")

@@ -8,60 +8,52 @@ This skill administers the **admin plane** (`/api/ui/*`), which accepts **only**
 
 ## The token, in one paragraph
 
-You sign in through your organization's normal login (Microsoft / SSO → Auth0 universal login → MFA, all handled by the browser). Auth0 returns a short-lived **access token** (JWT, ~24 h) and a long-lived **refresh token**. The CLI puts the access token on every request; when it nears expiry, the refresh token gets a new one silently. You only see a browser the very first time (and again only if the refresh token is ever revoked).
+You sign in through your organization's normal login (Microsoft / SSO → Auth0 universal login → MFA, all in the browser). Auth0 returns a short-lived **access token** (JWT, ~24 h) and a long-lived **refresh token**. The CLI puts the access token on every request; when it nears expiry, the refresh token gets a new one silently. You only see a browser the very first time (and again only if the refresh token is ever revoked). Sign-in uses **Authorization Code + PKCE** against a **public** OAuth client — there is no client secret anywhere in this skill.
 
 | Claim | Value (PROD) |
 |---|---|
 | Issuer (`iss`) | `https://cloud-login.cdata.com/` |
 | Audience (`aud`) | `https://cloud.cdata.com/api` |
-| Authorizing party (`azp`) | `lEvk7ySDJAaWHhBWPEY9fiMNYf4RN25e` (embedded driver OAuth client) |
+| Authorizing party (`azp`) | `7sXB4AwuiEZcBZH0P61h8PFKvH6d0Aoo` (public Single Page App OAuth client; override with `CDATA_PKCE_CLIENT_ID`) |
 | Algorithm | RS256 |
 | TTL | 86,400 s (24 h) |
 | Scope | `openid profile email offline_access` (`offline_access` yields the refresh token) |
 
 ---
 
-## Sign in — the CLI (browser sign-in, automated)
+## Sign in — the CLI (Authorization Code + PKCE, no secret)
 
-The primary tool is the cross-platform CLI — `node scripts/connect-cli.mjs login` (then `status` / `whoami`). It opens the browser once, then caches and silently refreshes the token. This skill never uses a pre-wired MCP connector to obtain or carry the token (see SKILL.md ground rule 2).
+The primary tool is the cross-platform CLI — `node scripts/connect-cli.mjs login` (then `status` / `whoami`). It opens the browser once, then caches and silently refreshes the token. Sign-in is **Authorization Code + PKCE (S256)** against a public client, so **no client secret** is shipped or stored — a stolen authorization code is useless without the per-login `code_verifier`. This skill never uses a pre-wired MCP connector to obtain or carry the token (see SKILL.md ground rule 2).
 
-The PowerShell helper `scripts/cdata-connect-auth.ps1` (Windows) does the same OAuth dance but just *returns a Bearer token* for raw-REST scripting. The CLI and the script share one token cache, so a single sign-in serves both.
-
-```powershell
-$tok = & "<skill-dir>\scripts\cdata-connect-auth.ps1"
-$H   = @{ Authorization = "Bearer $tok"; Accept = "application/json" }
-Invoke-RestMethod "https://cloud.cdata.com/api/ui/users/self" -Headers $H   # admin-plane smoke test → 200
+```
+node scripts/connect-cli.mjs login          # browser once; caches + auto-refreshes
+node scripts/connect-cli.mjs whoami          # admin-plane smoke test → your profile
+node scripts/connect-cli.mjs token           # print a valid access token (for raw-REST scripting)
 ```
 
-Behavior:
+**Agent / non-interactive sign-in (preferred when a browser can't reach this machine):**
+```
+node scripts/connect-cli.mjs login-start                    # prints the authorize URL, opens the browser, saves the pending verifier
+node scripts/connect-cli.mjs login-finish "<redirect URL>"  # exchanges the pasted redirect URL (validates state)
+```
+The `oauth.cdata.com` bounce does not reliably forward the code to `localhost` for this client, so `login` (auto-catch) can time out — fall back to `login-start` / `login-finish`, where the user pastes the `https://oauth.cdata.com/oauth?code=...&state=...` redirect URL back. The password only ever goes into the browser page — never into chat or the CLI.
+
+Behavior of `login` / `token`:
 - **Cache hit** (token >5 min from expiry) → returns it instantly, no network.
-- **Cache stale but refresh token present** → silent refresh, no browser.
-- **No cache / refresh failed** → opens the browser to Auth0, listens on `http://localhost:33333` (loopback only), captures the code, exchanges it, caches the result.
+- **Cache stale but refresh token present** → silent refresh (public-client refresh, no secret), no browser.
+- **No cache / refresh failed** → opens the browser to Auth0, listens on `http://127.0.0.1:33334` (loopback only), catches the code, exchanges it with the PKCE verifier, caches the result.
 
-Cache location: `%LOCALAPPDATA%\CData\connect-auth.json` (in the user profile). It holds `access_token`, `refresh_token`, `expires_at` as **plaintext JSON — no DPAPI/keychain protection**, so treat the file as sensitive (it carries a long-lived refresh token). **The skill never copies this file's contents into any skill file.**
+Cache location: `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) / `~/.config/CData/connect-auth.json`. It holds `access_token`, `refresh_token`, `expires_at` as **plaintext JSON — no DPAPI/keychain protection**, so treat the file as sensitive (it carries a long-lived, non-rotating refresh token). **The skill never copies this file's contents into any skill file.**
 
-Useful switches: `-Force` (skip cache, full browser flow), `-Port <n>` (change the listener port), `-TimeoutSeconds <n>` (sign-in wait, default 300).
+Useful switches: `--from-scratch` (wipe the cache, full browser flow), `--port <n>` (change the listener port).
 
-### How the script works (bounce-server flow)
+### How sign-in works (Authorization Code + PKCE)
 
-The embedded driver OAuth client is registered with the redirect `https://oauth.cdata.com/oauth/` (a CData-hosted "bounce" server), **not** `localhost`. The script works around that:
-
-1. Build the authorize URL with `state = base64("http://localhost:33333")` and `redirect_uri = https://oauth.cdata.com/oauth/`:
-   ```
-   https://cloud-login.cdata.com/authorize
-     ?audience=https://cloud.cdata.com/api
-     &scope=offline_access
-     &state=<base64(http://localhost:33333)>
-     &client_id=<driver client id>
-     &response_type=code
-     &redirect_uri=https://oauth.cdata.com/oauth/
-   ```
-2. Auth0 redirects to the bounce server, which **decodes `state`** and forwards to `http://localhost:33333?code=<base64(realCode)>&rssbus=true`.
-3. The local listener catches it. The `code` is **base64-encoded** — the script decodes it first.
-4. Token exchange at `https://cloud-login.cdata.com/oauth/token` with `grant_type=authorization_code`, the decoded `code`, the client id/secret, and `redirect_uri=https://oauth.cdata.com/oauth/` (must match the registered redirect, **not** localhost).
-5. Refresh later: `grant_type=refresh_token` with the stored refresh token.
-
-The driver client id/secret are shipped **encrypted** in the driver (AES-128-ECB, PKCS7, key = ASCII `"_rssbus_"` right-padded to 16 bytes). The script decrypts them at runtime to drive the flow. *(Source of truth: `ProviderCDataConnect/src/.../QueryUtil.java`, `OAuthBase.java`, `OAuthConsts.java`.)*
+1. The CLI generates a random `code_verifier` and sends its SHA-256 hash (`code_challenge`, method `S256`) on the authorize request to `https://cloud-login.cdata.com/authorize`, with the public `client_id`, `redirect_uri=https://oauth.cdata.com/oauth`, `scope`, and `audience`.
+   - For `login` (auto-catch), `state = base64("http://localhost:33334")` so the `oauth.cdata.com` bounce knows where to forward the code. For `login-start` / `login-finish`, `state` is a **random nonce that is validated** on return (CSRF protection).
+2. The user signs in in their own browser; Auth0 redirects a one-time code to `https://oauth.cdata.com/oauth`, which bounces it to the local listener (auto-catch) or the user pastes the redirect URL (login-finish). The code may arrive base64-encoded — the CLI decodes it.
+3. Token exchange at `https://cloud-login.cdata.com/oauth/token` with `grant_type=authorization_code`, the code, `redirect_uri`, and the **`code_verifier`** — **no client secret**; PKCE proves the request came from the client that started the flow.
+4. Refresh later: `grant_type=refresh_token` with the public `client_id` (no secret).
 
 ---
 
@@ -105,7 +97,7 @@ Sign in with the CLI against that host and replace `https://cloud.cdata.com` wit
 
 No credential is ever written into a skill file, and none is echoed back into the conversation. What the bundled tooling *does* keep on the user's machine:
 
-- **The CLI / PowerShell helper** cache the Auth0 access + refresh token at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json` — **plaintext JSON**, no DPAPI/keychain. Treat it as sensitive.
+- **The CLI** caches the Auth0 access + refresh token at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json` — **plaintext JSON**, no DPAPI/keychain. Treat it as sensitive.
 - **The bundled Python helpers** (`cdata_workspaces.py`, `cdata_jobs.py`) read a token from `~/.cdata_token` when present, and otherwise fall back to the CLI's cache above.
 
 So the accurate statement is *"tokens live in the local token cache / token file, never in a skill file"* — not *"nothing is written to disk."* Handle those files like passwords.

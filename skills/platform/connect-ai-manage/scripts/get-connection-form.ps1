@@ -26,8 +26,8 @@
   Optional. Narrow the template to one auth scheme (e.g. OAuth, Basic).
 
 .PARAMETER Token
-  Auth0 Bearer token. If omitted, the script calls cdata-connect-auth.ps1 in the
-  same folder to obtain one.
+  Auth0 Bearer token. If omitted, the script runs `node connect-cli.mjs token`
+  in the same folder to obtain one (PKCE sign-in, no secret).
 
 .EXAMPLE
   .\get-connection-form.ps1 -Driver Salesforce
@@ -43,9 +43,10 @@ $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 if (-not $Token) {
-  $auth = Join-Path $PSScriptRoot 'cdata-connect-auth.ps1'
-  if (-not (Test-Path $auth)) { throw "No -Token given and cdata-connect-auth.ps1 not found next to this script." }
-  $Token = & $auth
+  $cli = Join-Path $PSScriptRoot 'connect-cli.mjs'
+  if (-not (Test-Path $cli)) { throw "No -Token given and connect-cli.mjs not found next to this script." }
+  $Token = (& node $cli token).Trim()
+  if (-not $Token) { throw "connect-cli.mjs token returned nothing. Run 'node connect-cli.mjs login' first." }
 }
 $H = @{ Authorization = "Bearer $Token"; Accept = "application/json" }
 

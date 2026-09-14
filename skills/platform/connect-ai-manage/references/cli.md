@@ -3,7 +3,7 @@
 The skill's **primary tool** — the Connect AI analogue of the Membrane CLI. It owns Auth0 sign-in (browser once, then silent refresh) and wraps the whole REST surface as subcommands, so you issue clean commands instead of hand-building HTTP. Bundled at [`scripts/connect-cli.mjs`](../scripts/connect-cli.mjs).
 
 - **Runtime:** Node 18+ (zero dependencies — Node built-ins only). Verified on Node 25.
-- **Auth:** Auth0 only (embedded driver OAuth client + `oauth.cdata.com` bounce server). No PAT. Token cached at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json`, shared with the PowerShell helper.
+- **Auth:** Auth0 only, via **Authorization Code + PKCE** against a public client — **no client secret**. No PAT (rejected on the admin plane). Token cached at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json`. See [authentication.md](authentication.md).
 - **Output:** JSON on stdout. Errors are `{"error":"…"}` on stdout with exit code 1. Sign-in progress prints to stderr.
 - **Invocation:** `node scripts/connect-cli.mjs <command> [options]`. (Publishable later as `@cdata/connect-cli` for `npx @cdata/connect-cli <command>` with no code change.)
 

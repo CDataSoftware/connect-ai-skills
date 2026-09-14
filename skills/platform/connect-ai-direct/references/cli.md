@@ -5,7 +5,7 @@ The skill's **primary tool** on a shell — the Connect AI analogue of the Membr
 This page documents the **auth + data-plane** commands this skill uses. The same CLI binary also has admin commands (connections, drivers, users, workspaces, toolkits, jobs, PATs, billing, scripted OAuth) — those are documented in the **`connect-ai-manage`** skill, not here.
 
 - **Runtime:** Node 18+ (zero dependencies — Node built-ins only). Verified on Node 25.
-- **Auth:** the CLI signs in with **Auth0** (embedded driver OAuth client + `oauth.cdata.com` bounce server); the token is cached at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json`, shared with the PowerShell helper. The CLI itself doesn't use a PAT — on shell-less surfaces the skill uses a **PAT + Basic auth without the CLI** (raw `/api/*` calls; see [authentication.md](authentication.md#path-b)).
+- **Auth:** the CLI signs in with **Auth0** via **Authorization Code + PKCE** against a public client — **no client secret**; the token is cached at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json`. The CLI itself doesn't use a PAT — on shell-less surfaces the skill uses a **PAT + Basic auth without the CLI** (raw `/api/*` calls; see [authentication.md](authentication.md#path-b)).
 - **Output:** JSON on stdout. Errors are `{"error":"…"}` on stdout with exit code 1. Sign-in progress prints to stderr.
 - **Invocation:** `node scripts/connect-cli.mjs <command> [options]`.
 

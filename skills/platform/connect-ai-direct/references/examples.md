@@ -15,7 +15,7 @@ Throughout (Path A / Bearer shown; for Path B swap in `Authorization: Basic base
 
 **PowerShell**
 ```powershell
-$tok = & "<skill-dir>\scripts\cdata-connect-auth.ps1"
+$tok = node scripts/connect-cli.mjs token   # PKCE sign-in; prints a valid access token
 $H = @{ Authorization = "Bearer $tok"; "Content-Type" = "application/json" }
 $body = @{
   query = "SELECT [Id],[CaseNumber],[Subject],[Status],[Priority] FROM [Salesforce1].[Salesforce].[Case] WHERE [IsClosed] = 0 ORDER BY [CreatedDate] DESC LIMIT 25"

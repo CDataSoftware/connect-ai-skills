@@ -2,7 +2,7 @@
 
 End-to-end management of Connect AI connections via the admin BFF (`/api/ui/*`), so routine connection work never needs the portal. This is the **guided-flow** layer on top of the raw endpoints: it asks for the driver, the auth scheme, and any needed settings, securely collects credentials, then creates and verifies the connection.
 
-**Auth:** the same Auth0 Bearer token as everything else in this skill, from the CLI (`$jwt = & .\scripts\cdata-connect-auth.ps1` — shares the cache with `connect-cli.mjs login`). Admin is CLI-only; there is no shell-less path (see [authentication.md](authentication.md)). All snippets below assume `$jwt` is set.
+**Auth:** the same Auth0 Bearer token as everything else in this skill, from the CLI (`$jwt = node scripts/connect-cli.mjs token` — PKCE sign-in, no secret). Admin is CLI-only; there is no shell-less path (see [authentication.md](authentication.md)). All snippets below assume `$jwt` is set.
 
 > Simple cases are one CLI command (`connections`, `connection-create`, `connection-delete` — see [cli.md](cli.md)). Use the flows in THIS file when the user wants a **guided** create (pick driver → pick auth scheme → collect credentials securely), an **update** of an existing connection, **scripted OAuth without the portal**, or per-user **permissions**.
 
