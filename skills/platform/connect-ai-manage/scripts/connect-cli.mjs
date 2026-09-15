@@ -90,17 +90,85 @@ function httpRequest(urlStr, { method = 'GET', headers = {}, body = null } = {})
   });
 }
 
+// ---------------------------------------------------------------------------
+// Token cache at rest (CLOUD-27925)
+// ---------------------------------------------------------------------------
+// The refresh token is long-lived and mints admin-plane access tokens, so it is
+// the one secret worth protecting on disk. We encrypt ONLY that field with
+// AES-256-GCM under a key derived from stable machine + user identifiers (no
+// stored key, no native dependency, still Node built-ins only). This binds the
+// ciphertext to this machine+user: a copied connect-auth.json will not decrypt
+// elsewhere, defeating the "copy the file off the box and keep minting admin
+// tokens" threat. It is NOT an OS keystore — a process already running as this
+// user can re-derive the key; that residual risk is documented in
+// references/authentication.md. The short-lived access_token (<=24h,
+// self-expiring) stays plaintext so the bundled Python helpers and raw-REST
+// scripting keep reading it unchanged.
+const ENC_ALG = 'aes-256-gcm';
+const ENC_VER = 1;
+
+function keyMaterial() {
+  let user = '';
+  try { user = os.userInfo().username || ''; } catch { /* no passwd entry */ }
+  if (!user) user = process.env.USERNAME || process.env.USER || '';
+  // Stable per-machine + per-user inputs. Not secret; the protection is the binding.
+  // NUL delimiter (can't appear in any of these values) keeps the fields unambiguous.
+  const SEP = String.fromCharCode(0);
+  return [os.hostname(), user, os.homedir(), process.platform, process.arch].join(SEP);
+}
+function deriveKey() { return crypto.scryptSync(keyMaterial(), 'cdata/connect-auth/v1', 32); }
+
+function encryptSecret(plain) {
+  if (plain == null) return null;
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv(ENC_ALG, deriveKey(), iv);
+  const ct = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
+  return { v: ENC_VER, alg: 'AES-256-GCM', iv: iv.toString('base64'),
+    tag: c.getAuthTag().toString('base64'), ct: ct.toString('base64') };
+}
+function decryptSecret(box) {
+  if (box == null) return null;
+  if (typeof box === 'string') return box;   // legacy plaintext refresh token — upgraded on next write
+  try {
+    const d = crypto.createDecipheriv(ENC_ALG, deriveKey(), Buffer.from(box.iv, 'base64'));
+    d.setAuthTag(Buffer.from(box.tag, 'base64'));
+    return Buffer.concat([d.update(Buffer.from(box.ct, 'base64')), d.final()]).toString('utf8');
+  } catch { return null; }                    // wrong machine/user or tampered → treat as no refresh token
+}
+
+// Best-effort at-rest permission tightening. Honored on POSIX (chmod); on Windows
+// NTFS the mode is ignored, so the refresh token's machine-bound encryption above
+// is the actual at-rest control there (see references/authentication.md).
+function hardenPerms(file) {
+  if (process.platform === 'win32') return;
+  try { fs.chmodSync(path.dirname(file), 0o700); } catch { /* best effort */ }
+  try { fs.chmodSync(file, 0o600); } catch { /* best effort */ }
+}
+
 function readCache() {
   try {
     let s = fs.readFileSync(cacheFile(), 'utf8');
     if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1); // strip BOM (PowerShell writes UTF-8 BOM)
-    return JSON.parse(s);
+    const obj = JSON.parse(s);
+    if (obj && typeof obj === 'object' && 'refresh_token_enc' in obj) {
+      const rt = decryptSecret(obj.refresh_token_enc); // null if this file came from another machine/user
+      if (rt) obj.refresh_token = rt; else delete obj.refresh_token;
+      delete obj.refresh_token_enc;
+    }
+    return obj;
   } catch { return null; }
 }
+// Persists access_token + expires_at as plaintext (short-lived; also read by the
+// Python helpers) and the refresh token as a machine-bound AES-256-GCM box.
+// Callers keep passing a plaintext refresh_token — encryption is centralized here.
 function writeCache(obj) {
   const f = cacheFile();
   fs.mkdirSync(path.dirname(f), { recursive: true });
-  fs.writeFileSync(f, JSON.stringify(obj, null, 2), { mode: 0o600 });
+  const onDisk = { access_token: obj.access_token, expires_at: obj.expires_at };
+  const enc = encryptSecret(obj.refresh_token);
+  if (enc) onDisk.refresh_token_enc = enc;
+  fs.writeFileSync(f, JSON.stringify(onDisk, null, 2), { mode: 0o600 });
+  hardenPerms(f);
 }
 function clearCache() { try { fs.unlinkSync(cacheFile()); return true; } catch { return false; } }
 

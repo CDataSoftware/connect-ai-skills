@@ -43,7 +43,24 @@ Behavior of `login` / `token`:
 - **Cache stale but refresh token present** → silent refresh (public-client refresh, no secret), no browser.
 - **No cache / refresh failed** → opens the browser to Auth0, listens on `http://127.0.0.1:33334` (loopback only), catches the code, exchanges it with the PKCE verifier, caches the result.
 
-Cache location: `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) / `~/.config/CData/connect-auth.json`. It holds `access_token`, `refresh_token`, `expires_at` as **plaintext JSON — no DPAPI/keychain protection**, so treat the file as sensitive (it carries a long-lived, non-rotating refresh token). **The skill never copies this file's contents into any skill file.**
+Cache location: `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) / `~/.config/CData/connect-auth.json`. It holds `access_token` and `expires_at` as plaintext JSON, and the **`refresh_token` encrypted at rest** — AES-256-GCM under a key derived from stable machine + user identifiers (Node built-ins only; no native dependency, no stored key). The encryption **binds the ciphertext to this machine + user**, so a copied `connect-auth.json` will not decrypt on another box (a lifted file can't keep minting tokens elsewhere); a file that fails to decrypt is treated as no session and the CLI re-runs the browser sign-in. On POSIX the file and its directory are also `chmod`'d to `600`/`700`; on Windows NTFS that mode is ignored, so the refresh-token encryption is the real at-rest control there. This is **not** an OS keystore — a process already running as you can re-derive the key — so still treat the file as sensitive. **The skill never copies this file's contents into any skill file.**
+
+### At-rest protection — what ships and why (CLOUD-27925)
+
+**Decision:** encrypt the **refresh token** in the cache with AES-256-GCM under a machine + user-derived key (Node `crypto` built-ins only), keep the short-lived `access_token` / `expires_at` as plaintext, and tighten file/directory permissions where the OS honors them.
+
+**Why this shape:**
+- The refresh token is the long-lived secret that silently mints access tokens (the same token is accepted on the admin plane, `/api/ui/*`). Binding its ciphertext to the machine + user defeats the concrete threat — copy the file off the box and it no longer decrypts. That is the highest-value at-rest win available with no new dependencies.
+- The `access_token` stays readable on purpose: the bundled Python helpers (`cdata_jobs.py`, `cdata_workspaces.py`) and raw-REST scripting read it directly, and it self-expires in ≤24 h, so its at-rest exposure is inherently bounded.
+- Keeps the CLI zero-dependency and cross-platform, and reintroduces **no** client secret.
+
+**Accepted tradeoff (call it out explicitly):** because the `access_token` is plaintext, a copied `connect-auth.json` still yields **up to ~24 h of admin-plane access** until that token expires. What it does **not** yield is the *indefinite* access the refresh token gave before — the copied refresh token no longer decrypts off the origin machine, so the exposure window collapses from "forever, until manually revoked" to "at most one token TTL." That is the intended bound; enabling Auth0 refresh-token rotation would tighten it further.
+
+**Considered and deferred:**
+- **OS keystore (DPAPI / Keychain / libsecret)** — strongest, but adds per-platform code and a native dependency the CLI deliberately avoids. Not adopted now; the machine-bound encryption is the pragmatic middle option.
+- **Refresh-token rotation on the Auth0 app** — complementary and worthwhile. It is an Auth0 **app-config** change (outside this repo's code), and the refresh path here is already rotation-ready: it persists a new refresh token whenever Auth0 returns one. Enabling rotation bounds the exposure window further and pairs well with the encryption above; it depends on the still-open OAuth-app-ownership decision.
+
+**Residual risk (stated plainly):** this is not an OS keystore. A process already running as the same user on the same machine can re-derive the key and read the refresh token — there is no stored key to steal, but no hardware/OS boundary either. Treat `connect-auth.json` as sensitive.
 
 Useful switches: `--from-scratch` (wipe the cache, full browser flow), `--port <n>` (change the listener port).
 
@@ -97,7 +114,7 @@ Sign in with the CLI against that host and replace `https://cloud.cdata.com` wit
 
 No credential is ever written into a skill file, and none is echoed back into the conversation. What the bundled tooling *does* keep on the user's machine:
 
-- **The CLI** caches the Auth0 access + refresh token at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json` — **plaintext JSON**, no DPAPI/keychain. Treat it as sensitive.
+- **The CLI** caches the Auth0 tokens at `%LOCALAPPDATA%\CData\connect-auth.json` (Windows) or `~/.config/CData/connect-auth.json`. The `access_token` and `expires_at` are plaintext JSON; the **`refresh_token` is encrypted at rest** and bound to this machine + user (see "Sign in" above for the full at-rest decision). Treat the file as sensitive.
 - **The bundled Python helpers** (`cdata_workspaces.py`, `cdata_jobs.py`) read a token from `~/.cdata_token` when present, and otherwise fall back to the CLI's cache above.
 
 So the accurate statement is *"tokens live in the local token cache / token file, never in a skill file"* — not *"nothing is written to disk."* Handle those files like passwords.
