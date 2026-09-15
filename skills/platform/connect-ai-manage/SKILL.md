@@ -24,6 +24,12 @@ Everything runs under an **Auth0 Bearer token** obtained from your normal compan
 | Read/write **data** with **no** MCP connector available | `connect-ai-direct` |
 | Set Connect AI up in Claude Code for the first time | `connect-ai-onboarding-claude-code` |
 
+> **Prefer the governed MCP for connection/toolkit work when it's available.** `connect-ai-manage-mcp`
+> does connection and toolkit administration through the Management MCP server (`mcp/mgmt`) — OAuth-only
+> connection creation (no secrets in chat) and MCP-native toolkit shaping. It's the narrower, supported
+> path for that subset. Use **this** skill for everything the Management MCP can't do: workspaces, jobs,
+> users/roles, PATs, billing, hard deletes, and custom-tool SQL edits.
+
 On Claude Code, this skill and `connect-ai-direct` share the same Auth0 CLI sign-in and token cache, so moving between admin and direct-API data work needs no re-auth. (On shell-less surfaces, `connect-ai-direct` uses a PAT instead — and admin isn't available there; see Step 0.)
 
 ## Ground rules

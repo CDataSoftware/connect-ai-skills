@@ -62,11 +62,12 @@ Additional skills will be listed here as they ship.
 
 ## Platform
 
-Operate CData Connect AI itself over its REST API (**not** the MCP server). These skills are **standalone** — they do not require `connect-ai-base`, and they use a direct Auth0/PAT transport rather than MCP tools.
+Operate CData Connect AI itself — administration, not data querying. These skills are **standalone** (they do not require `connect-ai-base`). `connect-ai-manage` and `connect-ai-direct` use a direct Auth0/PAT REST transport; `connect-ai-manage-mcp` instead drives the governed **Management MCP** server.
 
 | Skill | Description |
 |---|---|
-| [`connect-ai-manage`](skills/platform/connect-ai-manage/SKILL.md) | **Platform administration.** Manage Connect AI itself over the admin REST API (`/api/ui/*`, Auth0): connections, drivers, workspaces, toolkits, jobs, users/roles, PATs, and billing. Not for querying data. |
+| [`connect-ai-manage`](skills/platform/connect-ai-manage/SKILL.md) | **Platform administration (REST).** Manage Connect AI itself over the admin REST API (`/api/ui/*`, Auth0): connections, drivers, workspaces, toolkits, jobs, users/roles, PATs, and billing. The full admin surface. Not for querying data. |
+| [`connect-ai-manage-mcp`](skills/platform/connect-ai-manage-mcp/SKILL.md) | **Platform administration (MCP).** Connection + toolkit administration through the governed Management MCP server (`mcp/mgmt`): create OAuth connections, list/test connections, and build/shape toolkits. The MCP-native counterpart to `connect-ai-manage` — for workspaces, jobs, users, PATs, billing, or hard deletes, use `connect-ai-manage`. |
 | [`connect-ai-direct`](skills/platform/connect-ai-direct/SKILL.md) | **Direct-API data path.** Query and write data over the raw REST API (`/api/*`) when no MCP connector is available — Auth0 via the bundled CLI, or a PAT on shell-less surfaces. A discovery-only fallback; prefer `connect-ai-base` + a connector skill whenever a connector is present. |
 
 ## Onboarding
@@ -81,7 +82,8 @@ New to Connect AI? Start here.
 
 - **CData Connect AI** account with at least one connection configured
 - For the **MCP-based skills** (`connect-ai-base` + connector skills): the **Connect AI MCP server** added to your AI integration (see [Connect AI Integrations - AI Tools](https://docs.cloud.cdata.com/en/Integrations#ai-tools))
-- For the **Platform skills** (`connect-ai-manage`, `connect-ai-direct`): no MCP server required — they authenticate directly (Auth0 browser sign-in via the bundled CLI, or a PAT) and call the Connect AI REST API
+- For the **REST Platform skills** (`connect-ai-manage`, `connect-ai-direct`): no MCP server required — they authenticate directly (Auth0 browser sign-in via the bundled CLI, or a PAT) and call the Connect AI REST API
+- For **`connect-ai-manage-mcp`**: the **Management MCP server** (`https://mcp.cloud.cdata.com/mcp/mgmt`) added to your AI integration — authenticated with a PAT over HTTP Basic, or browser OAuth
 
 ## License
 
