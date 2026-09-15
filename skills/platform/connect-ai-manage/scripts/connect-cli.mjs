@@ -366,6 +366,7 @@ Auth:
   login-finish "<redirect URL>"       Finish login-start: exchange the pasted redirect URL (validates state; codes expire ~60s)
   logout                              Clear the cached token (same as login --from-scratch next time)
   whoami                              Show the signed-in user (verifies data + admin access)
+  token                               Print a valid access token to stdout (raw string; signs in / refreshes if needed)
 
 Discover & query:
   catalogs                            List data-source connections (catalogs)
@@ -428,7 +429,7 @@ Global flags:
   --host URL       override API base (default https://cloud.cdata.com)
 
 Notes:
-  * Output is JSON on stdout. Errors are {"error":"..."} on stdout, exit code 1.
+  * Output is JSON on stdout (except 'token', which prints the raw access token). Errors are {"error":"..."} on stdout, exit code 1.
   * DELETE SQL is blocked in the 'query' command only (advisory — exec / scheduled-query-create / raw can still issue it). Destructive admin ops (connection-delete, etc.) require --confirm.
   * On HTTP 200 the API can still carry {"error":{code,message}} — this CLI raises it as an error.`;
 
@@ -455,6 +456,7 @@ async function main() {
     case 'login-finish': { out(await loginFinish(args._[1]), args); return; }
     case 'logout': { out({ status: clearCache() ? 'logged-out' : 'no-cached-token' }, args); return; }
     case 'whoami': { out(await api('GET', '/api/ui/users/self'), args); return; }
+    case 'token': { process.stdout.write(await ensureToken({ port: args.port ? Number(args.port) : DEFAULT_PORT }) + '\n'); return; }
 
     case 'status': case 'preflight': {
       // Preflight: is there an ACTIVE connection to Connect AI? Run this first,

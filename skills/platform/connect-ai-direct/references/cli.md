@@ -26,6 +26,9 @@ node scripts/connect-cli.mjs query "SELECT [Id],[Name] FROM [Cat].[Schema].[Tabl
 | `login [--from-scratch] [--port N]` | Sign in via Auth0. Uses cached token if valid, silently refreshes if expiring, else opens the browser once. `--from-scratch` wipes the cache and forces a fresh browser login. |
 | `logout` | Delete the cached token. |
 | `whoami` | Show the signed-in user — verifies the credential works. |
+| `login-start` | Begin a non-interactive sign-in: prints the authorize URL, opens the browser, and saves the pending PKCE verifier + a random `state`. For agents or surfaces where the browser can't reach the local listener. |
+| `login-finish "<redirect URL>"` | Complete `login-start`: paste the `https://oauth.cdata.com/oauth?code=…&state=…` redirect URL. Validates `state`, exchanges the code, caches the token. Codes expire ~60 s. |
+| `token` | Print a valid access token to stdout (**raw string**, not JSON) — signs in or refreshes as needed. For raw-REST scripting, e.g. `$tok = node scripts/connect-cli.mjs token`. |
 
 > **`status` vs `login`:** `status` only *reports* (never opens a browser), so it's safe as an always-first preflight. If it returns `no-session`/`session-invalid`, run `login` to establish or refresh the session, then re-run `status`.
 

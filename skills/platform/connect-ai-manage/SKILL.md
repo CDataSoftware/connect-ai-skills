@@ -54,7 +54,7 @@ node scripts/connect-cli.mjs login     # opens the browser once; caches + auto-r
 node scripts/connect-cli.mjs whoami     # verify — proves admin access
 ```
 
-- First run opens your normal CData/Microsoft sign-in; the CLI catches the callback on `http://localhost:33333`.
+- First run opens your normal CData/Microsoft sign-in; the CLI catches the callback on `http://localhost:33334`.
 - Later runs use the cached token. Reset with `login --from-scratch`.
 - The token stays in the local CLI cache and never enters the chat. **Never** scrape an Auth0 token from browser DevTools to work around a shell-less surface — if there's no shell, admin isn't available here.
 
