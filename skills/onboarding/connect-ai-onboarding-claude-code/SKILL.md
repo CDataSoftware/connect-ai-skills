@@ -210,6 +210,8 @@ Then suggest one or two starter queries that match the catalogs the user actuall
 
 **Hand off to the base skill for querying.** From the user's first real data question onward, follow the `connect-ai-base` skill — it governs the required discovery workflow (`getInstructions` before any schema/table/column call), the fully-qualified `[Catalog].[Schema].[Table]` naming, and error recovery. If it isn't already loaded, load it before running the starter queries above, so the first query follows the discovery rules instead of guessing schema.
 
+**Related skills, only if the user's goal goes beyond querying.** To *administer* Connect AI rather than query it — create connections or build toolkits — use `connect-ai-manage-mcp`. It runs over the **Management MCP**, a separate endpoint (`https://mcp.cloud.cdata.com/mcp/mgmt`) that registers the same way as Step 2 but is **not** set up by this onboarding (the server just wired up is the data MCP, `.../mcp`). For the full admin surface (users, jobs, workspaces, PATs, billing) or hard deletes, use `connect-ai-manage` (direct REST). Don't pitch these unprompted.
+
 End the skill there. Do not add another `Reply **next**` prompt — there's nothing after this.
 
 ---

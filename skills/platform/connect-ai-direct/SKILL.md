@@ -21,7 +21,7 @@ This skill reads and writes data through Connect AI's **raw REST API** (`https:/
 |---|---|
 | MCP connector present, want data | `connect-ai-base` + connector skill (`connect-ai-<source>`) — **preferred** |
 | **No** MCP connector, want data | **this skill** |
-| Platform administration | `connect-ai-manage` |
+| Platform administration | `connect-ai-manage` (REST, full surface) — or `connect-ai-manage-mcp` for connection/toolkit admin over the Management MCP |
 | First-time setup in Claude Code | `connect-ai-onboarding-claude-code` |
 
 > **How to check:** if `tool_search` finds `getCatalogs`/`queryData` (or `*_query_data`), an MCP connector exists → hand off to `connect-ai-base`. Only proceed here when that search comes back empty.
