@@ -93,47 +93,63 @@ function httpRequest(urlStr, { method = 'GET', headers = {}, body = null } = {})
 // ---------------------------------------------------------------------------
 // Token cache at rest (CLOUD-27925)
 // ---------------------------------------------------------------------------
-// The refresh token is long-lived and mints admin-plane access tokens, so it is
-// the one secret worth protecting on disk. We encrypt ONLY that field with
-// AES-256-GCM under a key derived from stable machine + user identifiers (no
-// stored key, no native dependency, still Node built-ins only). This binds the
-// ciphertext to this machine+user: a copied connect-auth.json will not decrypt
-// elsewhere, defeating the "copy the file off the box and keep minting admin
-// tokens" threat. It is NOT an OS keystore — a process already running as this
-// user can re-derive the key; that residual risk is documented in
-// references/authentication.md. The short-lived access_token (<=24h,
-// self-expiring) stays plaintext so the bundled Python helpers and raw-REST
-// scripting keep reading it unchanged.
+// The refresh token is long-lived and mints access tokens (accepted on the admin
+// plane too), so it is the one secret worth protecting on disk. We encrypt ONLY
+// that field with AES-256-GCM under a key derived from machine + user identifiers
+// (no stored key, no native dependency, Node built-ins only). The inputs are
+// public and the salt ships in source, so this is NOT cryptographic secrecy: it
+// binds the ciphertext to this machine + user, which defeats a *casual* file copy
+// and blocks silent refresh on another box — it does not stop a determined holder
+// who knows those inputs from re-deriving the key. The short-lived access_token
+// (<=24h, self-expiring) stays plaintext so the bundled Python helpers and raw-REST
+// scripting read it unchanged, which also means a copied cache still yields up to
+// one access-token TTL of access. Full rationale + residual risk live in
+// references/authentication.md.
 const ENC_ALG = 'aes-256-gcm';
+const ENC_ALG_LABEL = 'AES-256-GCM'; // stored in the envelope; validated on read
 const ENC_VER = 1;
 
 function keyMaterial() {
   let user = '';
   try { user = os.userInfo().username || ''; } catch { /* no passwd entry */ }
   if (!user) user = process.env.USERNAME || process.env.USER || '';
-  // Stable per-machine + per-user inputs. Not secret; the protection is the binding.
-  // NUL delimiter (can't appear in any of these values) keeps the fields unambiguous.
+  // Machine + user binding. Deliberately NOT platform/arch — those flip across Node
+  // builds (e.g. an arm64 vs. x64-under-Rosetta run) and would needlessly discard a
+  // still-valid token. NUL delimiter can't appear in any of these values, so the
+  // fields stay unambiguous.
   const SEP = String.fromCharCode(0);
-  return [os.hostname(), user, os.homedir(), process.platform, process.arch].join(SEP);
+  return [os.hostname(), user, os.homedir()].join(SEP);
 }
 function deriveKey() { return crypto.scryptSync(keyMaterial(), 'cdata/connect-auth/v1', 32); }
+// Non-secret fingerprint of the (public) key material, stored beside the ciphertext
+// so a decrypt failure can distinguish "written on a different machine/profile" from
+// tampering/corruption instead of failing silently.
+function keyFingerprint() { return crypto.createHash('sha256').update(keyMaterial()).digest('base64url').slice(0, 12); }
 
 function encryptSecret(plain) {
   if (plain == null) return null;
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv(ENC_ALG, deriveKey(), iv);
   const ct = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
-  return { v: ENC_VER, alg: 'AES-256-GCM', iv: iv.toString('base64'),
+  return { v: ENC_VER, alg: ENC_ALG_LABEL, kf: keyFingerprint(), iv: iv.toString('base64'),
     tag: c.getAuthTag().toString('base64'), ct: ct.toString('base64') };
 }
+// Never throws. Returns { value } on success, or { error } with a human-readable
+// reason (unsupported version/alg, different machine/profile, or tamper/corruption)
+// so the caller can surface it instead of silently treating the session as tokenless.
 function decryptSecret(box) {
-  if (box == null) return null;
-  if (typeof box === 'string') return box;   // legacy plaintext refresh token — upgraded on next write
+  if (box == null || typeof box !== 'object') return { error: 'no refresh token' };
+  if (box.v !== ENC_VER) return { error: `unsupported cache format v${box.v} (this build expects v${ENC_VER})` };
+  if (box.alg !== ENC_ALG_LABEL) return { error: `unsupported cache algorithm ${box.alg}` };
   try {
     const d = crypto.createDecipheriv(ENC_ALG, deriveKey(), Buffer.from(box.iv, 'base64'));
     d.setAuthTag(Buffer.from(box.tag, 'base64'));
-    return Buffer.concat([d.update(Buffer.from(box.ct, 'base64')), d.final()]).toString('utf8');
-  } catch { return null; }                    // wrong machine/user or tampered → treat as no refresh token
+    return { value: Buffer.concat([d.update(Buffer.from(box.ct, 'base64')), d.final()]).toString('utf8') };
+  } catch {
+    return { error: (box.kf && box.kf !== keyFingerprint())
+      ? 'refresh token was written on a different machine or profile'
+      : 'refresh token is undecryptable (wrong key or tampered)' };
+  }
 }
 
 // Best-effort at-rest permission tightening. Honored on POSIX (chmod); on Windows
@@ -145,18 +161,49 @@ function hardenPerms(file) {
   try { fs.chmodSync(file, 0o600); } catch { /* best effort */ }
 }
 
+// Reason the last readCache() could not recover a refresh token (null when it could,
+// or when there was simply none). Survives the two readCache calls in one `status`
+// run so the failure reason can be reported even after the dead ciphertext is cleared.
+let _lastRefreshError = null;
+let _refreshWarned = false;
+function warnRefreshOnce(msg) {
+  if (_refreshWarned) return;
+  _refreshWarned = true;
+  try { process.stderr.write(`cdata-connect: ${msg}\n`); } catch { /* ignore */ }
+}
+
 function readCache() {
+  let s;
+  try { s = fs.readFileSync(cacheFile(), 'utf8'); } catch { return null; }
+  let obj;
   try {
-    let s = fs.readFileSync(cacheFile(), 'utf8');
     if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1); // strip BOM (PowerShell writes UTF-8 BOM)
-    const obj = JSON.parse(s);
-    if (obj && typeof obj === 'object' && 'refresh_token_enc' in obj) {
-      const rt = decryptSecret(obj.refresh_token_enc); // null if this file came from another machine/user
-      if (rt) obj.refresh_token = rt; else delete obj.refresh_token;
-      delete obj.refresh_token_enc;
-    }
-    return obj;
+    obj = JSON.parse(s);
   } catch { return null; }
+  if (!obj || typeof obj !== 'object') return obj;
+
+  if ('refresh_token_enc' in obj) {
+    const r = decryptSecret(obj.refresh_token_enc);
+    delete obj.refresh_token_enc;
+    if ('value' in r) {
+      obj.refresh_token = r.value;
+      _lastRefreshError = null;
+    } else {
+      // Decrypt failed: drop the dead token, record why (surfaced by status/preflight),
+      // warn once to stderr, and clear the useless ciphertext so we don't re-fail every run.
+      delete obj.refresh_token;
+      obj.refresh_token_error = r.error;
+      _lastRefreshError = r.error;
+      warnRefreshOnce(`${r.error}; silent refresh disabled — run "login" to re-authenticate.`);
+      try { writeCache(obj); } catch { /* best effort */ }
+    }
+  } else if (typeof obj.refresh_token === 'string' && obj.refresh_token) {
+    // Legacy plaintext cache (written before at-rest encryption): re-encrypt in place
+    // NOW so the protection takes effect immediately, not at the next natural write.
+    _lastRefreshError = null;
+    try { writeCache(obj); } catch { /* best effort */ }
+  }
+  return obj;
 }
 // Persists access_token + expires_at as plaintext (short-lived; also read by the
 // Python helpers) and the refresh token as a machine-bound AES-256-GCM box.
@@ -553,14 +600,23 @@ async function main() {
         .sort((a, b) => String(b.lastQueried).localeCompare(String(a.lastQueried)))
         .slice(0, 5)
         .map((c) => ({ name: c.name, driver: c.driver, lastQueried: c.lastQueried }));
+      // Refresh-token health: an active access token can coexist with an unusable
+      // refresh token (e.g. cache copied from another machine). Surface that so a
+      // caller re-auths deliberately instead of being surprised when it expires.
+      const rc = readCache();
+      const refreshOk = !!(rc && rc.refresh_token);
+      const refreshHealth = refreshOk ? 'ok' : (_lastRefreshError || 'none');
       out({
         status: 'active', signedIn: true, host: API_BASE,
         user: me.email || me.userId || me.name,
         connectionCount: connections.length,
+        refreshToken: refreshHealth,
         recentlyUsed,
-        next: connections.length
-          ? 'Active. Proceed with the requested task.'
-          : 'Signed in, but no data-source connections exist yet. Create one (connection-create / oauth-start) before querying.',
+        next: !refreshOk
+          ? `Active for now, but silent refresh is unavailable (${refreshHealth}). This session ends when the access token expires — run "login" to restore silent refresh.`
+          : (connections.length
+            ? 'Active. Proceed with the requested task.'
+            : 'Signed in, but no data-source connections exist yet. Create one (connection-create / oauth-start) before querying.'),
       }, args);
       return;
     }
