@@ -1,0 +1,21 @@
+name: skill-parity
+
+# Guards files that ship as byte-identical copies across skills (see
+# scripts/check-skill-parity.mjs). Introduced with the connect-cli.mjs token-cache
+# crypto contract, where a one-sided edit would fail silently at runtime rather than
+# at review time.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/check-skill-parity.mjs

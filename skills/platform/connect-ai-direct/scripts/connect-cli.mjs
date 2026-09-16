@@ -107,7 +107,12 @@ function httpRequest(urlStr, { method = 'GET', headers = {}, body = null } = {})
 // references/authentication.md.
 const ENC_ALG = 'aes-256-gcm';
 const ENC_ALG_LABEL = 'AES-256-GCM'; // stored in the envelope; validated on read
-const ENC_VER = 1;
+// Envelope format version. BUMP THIS whenever keyMaterial() or the key derivation
+// changes, so an envelope from an older build reports a clean "unsupported cache
+// format" instead of a misleading tamper / other-machine error. kf catches machine
+// or profile drift; v catches build-side derivation changes.
+// v1 → v2: dropped process.platform/arch from keyMaterial() and added the kf field.
+const ENC_VER = 2;
 
 function keyMaterial() {
   let user = '';
@@ -134,21 +139,28 @@ function encryptSecret(plain) {
   return { v: ENC_VER, alg: ENC_ALG_LABEL, kf: keyFingerprint(), iv: iv.toString('base64'),
     tag: c.getAuthTag().toString('base64'), ct: ct.toString('base64') };
 }
-// Never throws. Returns { value } on success, or { error } with a human-readable
-// reason (unsupported version/alg, different machine/profile, or tamper/corruption)
-// so the caller can surface it instead of silently treating the session as tokenless.
+// Never throws. Returns { value } on success, or { error, clear } on failure, where
+// `error` is a human-readable reason and `clear` says whether the on-disk envelope is
+// genuinely dead (safe to remove) vs. recoverable (keep it). Only the same-machine,
+// same-key corruption/tamper case is clearable; a version/alg mismatch (possibly a
+// newer build's or the other skill's envelope) or key drift (rename/clone/profile
+// move) is kept so it isn't clobbered and can resume once conditions return.
 function decryptSecret(box) {
-  if (box == null || typeof box !== 'object') return { error: 'no refresh token' };
-  if (box.v !== ENC_VER) return { error: `unsupported cache format v${box.v} (this build expects v${ENC_VER})` };
-  if (box.alg !== ENC_ALG_LABEL) return { error: `unsupported cache algorithm ${box.alg}` };
+  if (box == null || typeof box !== 'object') return { error: 'no refresh token', clear: false };
+  if (box.v !== ENC_VER) return { error: `unsupported cache format v${box.v} (this build expects v${ENC_VER})`, clear: false };
+  if (box.alg !== ENC_ALG_LABEL) return { error: `unsupported cache algorithm ${box.alg}`, clear: false };
   try {
     const d = crypto.createDecipheriv(ENC_ALG, deriveKey(), Buffer.from(box.iv, 'base64'));
     d.setAuthTag(Buffer.from(box.tag, 'base64'));
     return { value: Buffer.concat([d.update(Buffer.from(box.ct, 'base64')), d.final()]).toString('utf8') };
   } catch {
-    return { error: (box.kf && box.kf !== keyFingerprint())
-      ? 'refresh token was written on a different machine or profile'
-      : 'refresh token is undecryptable (wrong key or tampered)' };
+    // kf matches → key material is identical, so the key is right and the bytes are
+    // genuinely corrupt/tampered (dead). kf mismatch/absent → likely key drift, which
+    // is recoverable, so keep the ciphertext.
+    const sameKey = !!(box.kf && box.kf === keyFingerprint());
+    return { error: sameKey
+      ? 'refresh token is undecryptable (wrong key or tampered)'
+      : 'refresh token was written on a different machine or profile', clear: sameKey };
   }
 }
 
@@ -189,13 +201,17 @@ function readCache() {
       obj.refresh_token = r.value;
       _lastRefreshError = null;
     } else {
-      // Decrypt failed: drop the dead token, record why (surfaced by status/preflight),
-      // warn once to stderr, and clear the useless ciphertext so we don't re-fail every run.
+      // Decrypt failed: drop the dead token in-memory, record why (surfaced by
+      // status/preflight), warn once to stderr. Only rewrite the file — which drops the
+      // ciphertext — when the failure is genuinely dead (r.clear: right key, corrupt
+      // bytes). On key drift or a version/alg mismatch, KEEP the ciphertext on disk so
+      // returning to the origin machine/profile (or the matching build) resumes silent
+      // refresh instead of forcing a permanent re-login.
       delete obj.refresh_token;
       obj.refresh_token_error = r.error;
       _lastRefreshError = r.error;
       warnRefreshOnce(`${r.error}; silent refresh disabled — run "login" to re-authenticate.`);
-      try { writeCache(obj); } catch { /* best effort */ }
+      if (r.clear) { try { writeCache(obj); } catch { /* best effort */ } }
     }
   } else if (typeof obj.refresh_token === 'string' && obj.refresh_token) {
     // Legacy plaintext cache (written before at-rest encryption): re-encrypt in place
