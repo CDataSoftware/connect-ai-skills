@@ -127,6 +127,6 @@ Deep detail loads only when needed:
 ## Security & privacy
 
 - All traffic is HTTPS to your Connect AI host; no vendor API is called directly.
-- Auth0 access/refresh tokens live in the CLI's local token cache (`%LOCALAPPDATA%\CData\connect-auth.json`) and session memory only — never in the chat, never written to skill files. Note the cache is plaintext JSON in the user profile (no DPAPI/keychain), so treat it as sensitive; only the non-secret host URL is otherwise remembered.
+- Auth0 tokens live in the CLI's local token cache (`%LOCALAPPDATA%\CData\connect-auth.json`) and session memory only — never in the chat, never written to skill files. In that cache the long-lived **refresh token is encrypted at rest, bound to this machine + user** (AES-256-GCM, Node built-ins); the short-lived access token stays plaintext. It's still a sensitive file — a same-user process on the same box can re-derive the key (see [references/authentication.md](references/authentication.md)). Only the non-secret host URL is otherwise remembered.
 - Connect AI enforces the signed-in user's permissions; `403`s are surfaced, not bypassed.
 - Destructive actions are gated (see Safety rails).
