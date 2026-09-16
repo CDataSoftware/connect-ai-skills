@@ -92,8 +92,9 @@ URL and a distinct server name. PAT path (credential stays in the user's own ter
 
 ```bash
 # The user creates a PAT in the Connect AI console (Settings → Access Tokens / Integrations → Claude Code),
-# then runs this in THEIR terminal. cred = base64("<username>:<PAT>").
-claude mcp add --scope user --transport http connect-mgmt https://mcp.cloud.cdata.com/mcp/mgmt --header "Authorization: Basic $cred"
+# then runs BOTH lines in THEIR terminal, so the PAT stays local and never enters the chat.
+CRED=$(printf '%s' 'you@example.com:YOUR_PAT' | base64 | tr -d '\n')
+claude mcp add --scope user --transport http connect-mgmt https://mcp.cloud.cdata.com/mcp/mgmt --header "Authorization: Basic $CRED"
 ```
 
 OAuth alternative (short-lived, self-refreshing) — register without the header, then authenticate:
