@@ -351,9 +351,9 @@ Using the wrong form produces a clear error. On Odoo 19 and above, supplying `Ar
 {
   "procedure": "CallProcedure",
   "parameters": {
-    "Model": "res.partner",
-    "Operation": "search_read",
-    "KeywordArgs": "{\"domain\": [[\"is_company\", \"=\", true]], \"fields\": [\"name\", \"email\"], \"limit\": 3}"
+    "@Model": "res.partner",
+    "@Operation": "search_read",
+    "@KeywordArgs": "{\"domain\": [[\"is_company\", \"=\", true]], \"fields\": [\"name\", \"email\"], \"limit\": 3}"
   }
 }
 ```
@@ -370,9 +370,9 @@ Returns JSON, for example:
 {
   "procedure": "CallProcedure",
   "parameters": {
-    "Model": "res.partner",
-    "Operation": "search_count",
-    "KeywordArgs": "{\"domain\": []}"
+    "@Model": "res.partner",
+    "@Operation": "search_count",
+    "@KeywordArgs": "{\"domain\": []}"
   }
 }
 ```
@@ -421,9 +421,9 @@ Below Odoo 19:
 {
   "procedure": "CallProcedure",
   "parameters": {
-    "Model": "res.partner",
-    "Operation": "unlink",
-    "Arguments": "[[42]]"
+    "@Model": "res.partner",
+    "@Operation": "unlink",
+    "@Arguments": "[[42]]"
   }
 }
 ```
@@ -434,9 +434,9 @@ On Odoo 19 and above:
 {
   "procedure": "CallProcedure",
   "parameters": {
-    "Model": "res.partner",
-    "Operation": "unlink",
-    "KeywordArgs": "{\"ids\": [42]}"
+    "@Model": "res.partner",
+    "@Operation": "unlink",
+    "@KeywordArgs": "{\"ids\": [42]}"
   }
 }
 ```
