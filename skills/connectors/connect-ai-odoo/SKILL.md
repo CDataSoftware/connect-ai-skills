@@ -272,28 +272,44 @@ LIMIT 50
 
 ### Customer invoices
 
-`account_move` holds every accounting entry, so always filter by `move_type`. It is frequently the largest model in an Odoo instance, so keep the sort on `id` or a stored date column.
+`account_move` holds every accounting entry, so always filter by `move_type`. It is frequently
+the largest model in an Odoo instance, often hundreds of thousands of rows, and the sort column
+decides whether a query returns at all.
+
+#### Most recent invoices
+
+Sorting on `id` or on a stored date column is pushed down and stays responsive:
 
 ```sql
 SELECT [id], [name], [partner_id_label] AS customer,
-       [invoice_date], [amount_total], [amount_residual],
-       [state], [payment_state]
+       [create_date], [amount_total], [state], [payment_state]
 FROM [YourConnection].[Odoo].[account_move]
 WHERE [move_type] = 'out_invoice'
-ORDER BY [id] DESC
-LIMIT 50
+ORDER BY [create_date] DESC
+LIMIT 10
 ```
 
-Sorting that same query by `amount_total` can time out on a large `account_move`, because the ordering is not pushed down and the whole set has to be retrieved. When you need the largest invoices, narrow the rows first, then sort:
+Prefer `create_date` over `invoice_date` for recency. `invoice_date` is unset on draft invoices,
+which on some instances is nearly all of them, so ordering by it silently returns nothing useful.
+
+#### Largest invoices by amount
+
+Bound the scan with an id window and sort inside it. Copy this shape:
 
 ```sql
-SELECT [id], [name], [partner_id_label] AS customer, [invoice_date], [amount_total]
+SELECT [id], [name], [partner_id_label] AS customer, [amount_total], [state]
 FROM [YourConnection].[Odoo].[account_move]
 WHERE [move_type] = 'out_invoice'
-  AND [invoice_date] >= '2025-01-01'
+  AND [id] >= 400000          -- an id window; shift or widen it, or repeat across windows
 ORDER BY [amount_total] DESC
-LIMIT 20
+LIMIT 10
 ```
+
+`amount_total` is computed and its sort is not pushed down, so every scanned row is retrieved
+before ordering, and `LIMIT` is applied after the sort rather than before it. That is why the
+same query without the id window times out while this one returns promptly: the cost tracks
+rows scanned, not rows returned. To cover the whole table, walk it in id windows and merge the
+top rows from each.
 
 ### Open opportunities
 
@@ -437,7 +453,7 @@ If write operations are blocked, the Connect AI connection may not have write ac
 - **Joins produce ambiguous `name` columns**: almost every model has a bare `name`, and an alias on a plain column is dropped from the result header, so a two-table join can return two columns both headed `name`. Prefer the `_label` companion, or select only one table's `name`
 - **Multi-valued columns are not NULL when empty**: they come back as an empty string, so `IS NOT NULL` does not filter them. Use `<> ''`. This silently returns every row when you expected a filtered set
 - **A missing table usually means a missing app**: the error names the table it could not match. Confirm with `getTables` and check `ir_module_module`, rather than retrying
-- **Watch the sort column on large models**: `account_move` can hold hundreds of thousands of rows. Ordering by a computed or monetary column such as `amount_total` can time out, while `id` or a stored date column stays responsive. Narrow with a filter first, then sort
+- **Never sort a large model by a monetary or computed column before narrowing it**: ordering `account_move` by `amount_total` times out, because the sort is not pushed down and `LIMIT` is applied after it. Sort by `id` or a stored date column such as `create_date`, or filter the rows down first. This is the single most common way an Odoo query hangs
 - **`COUNT(DISTINCT ...)` does not scale**: it is accepted, but it is not pushed down, so it works on small or filtered sets and times out on large ones. If you reached for it to avoid double counting, you are usually joining two one-to-many relationships at once, so aggregate each in its own subquery instead
 - **Archived records**: Odoo archives with `active = false` rather than deleting. Add `WHERE [active] = true` when you want only live records
 - **Booleans are flexible**: `true` / `false`, `1` / `0`, and `'true'` / `'false'` all work in filters
