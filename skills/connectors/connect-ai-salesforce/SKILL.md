@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Salesforce
-  family: crm
+  family: crmerp
 ---
 
 # CData Connect AI — Salesforce Skill

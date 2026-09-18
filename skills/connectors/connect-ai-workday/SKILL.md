@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Workday
-  family: hcm
+  family: crmerp
 ---
 
 # CData Connect AI — Workday Skill

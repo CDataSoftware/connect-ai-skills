@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: HubSpot
-  family: crm
+  family: marketing
 ---
 
 # CData Connect AI — HubSpot Skill
