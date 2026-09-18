@@ -232,19 +232,19 @@ WHERE [DealId] = <deal-id>
 
 ### Creating records
 
-A raw `INSERT` against the object tables does **not** work. HubSpot assigns each record's primary key server-side and exposes the key column — `[VID]` on contacts, `[CompanyId]` on companies, `[DealId]` on deals, `[Id]` on tickets and most others — as read-only, while the insert path requires a value for every non-nullable column that has no default and does not skip the read-only key — so the statement is rejected before the driver sees it.
+A raw `INSERT` against the object tables works, though a dedicated create tool is preferred when one is available. Never supply the primary key: HubSpot assigns it server-side and exposes it as read-only. These inserts were historically rejected outright with *"neither nullable nor has a default value"*, an engine-level defect tracked in CLOUD-26993.
 
 **Creation is still supported**, through the connection's dedicated create tool for the object, which reaches the driver by a path that lets HubSpot generate the key. Use it in preference to any `INSERT`.
 
 - **Never supply the key column — `[VID]` on contacts, `[CompanyId]` on companies, `[DealId]` on deals, `[Id]` on tickets and most others —** on a create.
-- An error naming the key column as *"neither nullable nor has a default value"* is a property of the insert path, not a missing column. Switch to the create tool rather than retrying variants or inventing a key value.
+- An error naming the key column as *"neither nullable nor has a default value"* is an engine-level defect, not a missing column. It affects any connector with a driver-marked read-only key column and is tracked in CLOUD-26993. Switching to a create tool does not help, because it issues the same INSERT. Do not retry variants or invent a key value.
 - **Confirm the create by reading the record back** by the id the tool returns.
-- If no create tool is listed in this session, say plainly that creation is unavailable here, and offer to update an existing record or point the user to the HubSpot UI.
+- If no create tool is listed in this session, fall back to a raw `INSERT` rather than telling the user creation is unavailable.
 
-Two writes on this surface sidestep the insert path entirely: `InsertEngagement` creates engagement records through `executeProcedure`, and `DealAssociations` accepts inserts for managing deal relationships.
+Two writes on this surface have their own dedicated paths: `InsertEngagement` creates engagement records through `executeProcedure`, and `DealAssociations` accepts inserts for managing deal relationships.
 
 ### Write access control
-A Connect AI connection may also be set to read-only. If an update or stored procedure is refused on permission grounds, direct the user to enable write access in their Connect AI connection settings. That is a different cause from the insert-path behavior above — do not send a user to connection settings over an insert error.
+A Connect AI connection may also be set to read-only. If an update or stored procedure is refused on permission grounds, direct the user to enable write access in their Connect AI connection settings. That is a different cause from the engine-level behavior above. Do not send a user to connection settings over an insert error.
 
 ## Legacy-Specific Conventions
 
