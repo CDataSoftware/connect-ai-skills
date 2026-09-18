@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Instagram
-  family: marketing
+  family: social
 ---
 
 # CData Connect AI — Instagram Skill

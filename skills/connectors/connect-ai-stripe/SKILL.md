@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Stripe
-  family: accounting
+  family: ecommerce
 ---
 
 # CData Connect AI — Stripe Skill

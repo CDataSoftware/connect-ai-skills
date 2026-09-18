@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Jira
-  family: collaboration
+  family: crm
 ---
 
 # CData Connect AI — Jira Skill

@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Dynamics365BusinessCentral
-  family: erp
+  family: crmerp
 ---
 
 # CData Connect AI — Dynamics 365 Business Central Skill

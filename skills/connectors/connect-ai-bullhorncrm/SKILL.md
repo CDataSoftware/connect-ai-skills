@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: BullhornCRM
-  family: crm
+  family: crmerp
 ---
 
 # CData Connect AI — Bullhorn CRM Skill
