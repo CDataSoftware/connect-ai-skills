@@ -6,7 +6,7 @@ metadata:
   author: CData Software
   version: "1.0"
   connector: Odoo
-  family: crm_erp
+  family: crmerp
 ---
 
 # CData Connect AI — Odoo Skill
@@ -380,6 +380,8 @@ Returns JSON, for example:
 ## Write Operations
 
 Odoo supports INSERT and UPDATE through Connect AI where the connection has write access and the Odoo user's permissions allow it. Supply only the columns `getColumns` reports as writable.
+
+If inserted numeric values come back wrong, check that the connection's `Edition` matches the deployment: `yourcompany.odoo.com` is Odoo Online, self-hosted is Odoo OnPremise. `Edition` does not change the schema, which is read from the instance and varies only by installed apps, user permissions and Odoo version. It affects only how the driver marshals float, decimal and double values on INSERT.
 
 ### Create a record
 
