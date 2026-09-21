@@ -105,7 +105,7 @@ Modifiable models are exposed as **tables** supporting SELECT, INSERT, UPDATE, a
 Odoo's relational fields all live as columns on the same table. There are no separate junction tables:
 
 - **many2one**: a single integer ID referencing one row in another model, the equivalent of a foreign key. Resolve it with a JOIN, or read its `_label` companion for the display name.
-- **many2many**: text holding a comma-separated list of IDs, for example `category_id = "1,2,3"`. Filter with `LIKE` and parse the IDs client-side. Writable.
+- **many2many**: text holding a comma-separated list of IDs, for example `category_id = "1,2,3"`. Writable. To test for one ID, anchor the delimiters (`',' + [category_id] + ',' LIKE '%,2,%'`); a bare `LIKE '%2%'` also matches 12 and 20. Otherwise parse the list client-side.
 - **one2many**: the reverse of a many2one. Read it the same way as a many2many, but it is read-only. To change it, update the child rows' many2one column.
 
 Every many2one column has a `<column>_label` companion holding the target's display name, so `partner_id` is the ID and `partner_id_label` is the name. The `_label` companion is read-only: write to the ID column, read the label for display.
@@ -144,9 +144,11 @@ Nearly every Odoo model has both an `id` and a `name` column, so selecting `name
 - `display_name`: the computed display label, read-only
 - `create_date` / `write_date`: creation and last-modification timestamps
 - `active`: whether the record is active. Odoo archives by setting this false rather than deleting, so an unfiltered query can include archived rows
-- `<column>_id`: a many2one foreign key, writable
+- `<column>_id`: usually a many2one foreign key, writable
 - `<column>_id_label`: the companion display name for that foreign key, read-only
-- `<column>_ids`: a multi-valued relationship holding a comma-separated ID list, empty as `''` rather than NULL
+- `<column>_ids`: usually a multi-valued relationship holding a comma-separated ID list, empty as `''` rather than NULL
+
+The suffix is a hint, not a rule: `category_id` on `res_partner` is singular but multi-valued. `FieldReferences.IsMultiValued` is the authoritative answer, so check it rather than trusting the name.
 
 ### res_partner
 
@@ -294,13 +296,23 @@ which on some instances is nearly all of them, so ordering by it silently return
 
 #### Largest invoices by amount
 
-Bound the scan with an id window and sort inside it. Copy this shape:
+Bound the scan with an id window and sort inside it. Discover the range first rather than
+hardcoding it, because ids differ per instance:
+
+```sql
+SELECT MIN([id]) AS lo, MAX([id]) AS hi
+FROM [YourConnection].[Odoo].[account_move]
+WHERE [move_type] = 'out_invoice'
+```
+
+Then sort inside a window bounded on both sides, repeating across non-overlapping windows to
+cover the range:
 
 ```sql
 SELECT [id], [name], [partner_id_label] AS customer, [amount_total], [state]
 FROM [YourConnection].[Odoo].[account_move]
 WHERE [move_type] = 'out_invoice'
-  AND [id] >= 400000          -- an id window; shift or widen it, or repeat across windows
+  AND [id] >= 380000 AND [id] < 480000     -- one window taken from the range above
 ORDER BY [amount_total] DESC
 LIMIT 10
 ```
@@ -311,19 +323,26 @@ same query without the id window times out while this one returns promptly: the 
 rows scanned, not rows returned. To cover the whole table, walk it in id windows and merge the
 top rows from each.
 
-### Open opportunities
+### Opportunities still in play
 
-`crm_lead` holds both leads and opportunities, separated by `type`.
+`crm_lead` holds both leads and opportunities, separated by `type`. `active` records only whether
+a row is archived, so filtering on it alone still returns won and lost opportunities, which stay
+active. Whether an opportunity is still open lives on its stage: join `crm_stage` and filter on
+`is_won` and `fold`.
 
 ```sql
-SELECT [id], [name],
-       [stage_id_label] AS stage,
-       [user_id_label] AS salesperson,
-       [partner_id_label] AS customer,
-       [expected_revenue], [probability]
-FROM [YourConnection].[Odoo].[crm_lead]
-WHERE [type] = 'opportunity' AND [active] = true
-ORDER BY [expected_revenue] DESC
+SELECT l.[id], l.[name],
+       l.[stage_id_label] AS stage,
+       l.[user_id_label] AS salesperson,
+       l.[partner_id_label] AS customer,
+       l.[expected_revenue], l.[probability]
+FROM [YourConnection].[Odoo].[crm_lead] l
+INNER JOIN [YourConnection].[Odoo].[crm_stage] s ON l.[stage_id] = s.[id]
+WHERE l.[type] = 'opportunity'
+  AND l.[active] = true
+  AND s.[is_won] = false
+  AND s.[fold] = false
+ORDER BY l.[expected_revenue] DESC
 LIMIT 50
 ```
 
@@ -455,7 +474,7 @@ If write operations are blocked, the Connect AI connection may not have write ac
 - **Joins produce ambiguous `name` columns**: almost every model has a bare `name`, and an alias on a plain column is dropped from the result header, so a two-table join can return two columns both headed `name`. Prefer the `_label` companion, or select only one table's `name`
 - **Multi-valued columns are not NULL when empty**: they come back as an empty string, so `IS NOT NULL` does not filter them. Use `<> ''`. This silently returns every row when you expected a filtered set
 - **A missing table usually means a missing app**: the error names the table it could not match. Confirm with `getTables` and check `ir_module_module`, rather than retrying
-- **Never sort a large model by a monetary or computed column before narrowing it**: ordering `account_move` by `amount_total` times out, because the sort is not pushed down and `LIMIT` is applied after it. Sort by `id` or a stored date column such as `create_date`, or filter the rows down first. This is the single most common way an Odoo query hangs
+- **Never sort a large model by a computed, non-pushed-down column before narrowing it**: ordering `account_move` by `amount_total` times out, because the sort is not pushed down and `LIMIT` is applied after it. Sort by `id` or a stored date column such as `create_date`, or filter the rows down first. This is the single most common way an Odoo query hangs. The cost is pushdown and row count rather than the column being monetary: the product and opportunity patterns sort by `list_price` and `expected_revenue` on small models without trouble
 - **`COUNT(DISTINCT ...)` does not scale**: it is accepted, but it is not pushed down, so it works on small or filtered sets and times out on large ones. If you reached for it to avoid double counting, you are usually joining two one-to-many relationships at once, so aggregate each in its own subquery instead
 - **Archived records**: Odoo archives with `active = false` rather than deleting. Add `WHERE [active] = true` when you want only live records
 - **Booleans are flexible**: `true` / `false`, `1` / `0`, and `'true'` / `'false'` all work in filters
